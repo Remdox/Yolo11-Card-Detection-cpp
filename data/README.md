@@ -1,15 +1,3 @@
-# CV-Final-Project
-CV Final Project, 2025.
-
-TEMPORARY CONTENT
-
-INSTRUCTIONS TO RUN THE PROJECT
-1. cd into build/
-2. cmake ..
-3. make -> compiles (doesn't compile if there are compiler errors)
-4. ./finalProject <parameters (to define)>
-
-
 # Sport video analysis for billiard matches
 
 
@@ -53,4 +41,3 @@ Note that segmentation masks can be easily visualized as color images highlighti
 3: (0,0,255)
 4: (255,0,0,)
 5: (0,255,0)
-
