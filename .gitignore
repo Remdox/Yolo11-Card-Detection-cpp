@@ -12,3 +12,4 @@ build/libshared.a
 build/Makefile
 .cache/
 output/*
+data/*
