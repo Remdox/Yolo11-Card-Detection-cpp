@@ -1,18 +1,11 @@
 # CV Final Project
 CV Final Project, 2025.
 
-TEMPORARY CONTENT
-
-INSTRUCTIONS TO RUN THE PROJECT
-1. cd into build/
-2. cmake ..
-3. make -> compiles (doesn't compile if there are compiler errors)
-4. ./finalProject <parameters> (to define)
-
 Table of Contents
 =================
 
    * [Introduction](#introduction)
+   * [Instructions](#Instructions)
    * [Datasets](#what-is-anomaly-detection)
       * [Training](#Training)
       * [Validation](#Validation)
@@ -27,6 +20,16 @@ Table of Contents
 
 # Introduction
 [Read the full proposal](./Cv_final_proposal.pdf).
+   
+# Instructions
+
+@@@@@@__TEMPORARY CONTENT__@@@@@@@
+
+To run the project:
+1. cd into build/
+2. cmake ..
+3. make -> compiles (doesn't compile if there are compiler errors)
+4. ./finalProject <parameters> (to define)
    
 # Datasets
 Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness.
@@ -57,13 +60,18 @@ In this specific case, the dataset structure is defined as:
 │       ...
 └── data.yaml
 ```
-Where the labels are .txt files described in YOLO format. See: [Ultralytics YOLO format](https://docs.ultralytics.com/datasets/detect/). Example:
+Where The data.yaml file is used by the YOLO model to find each part of the dataset and assign each class to its corresponding name. 
+
+The labels are .txt files described in YOLO format. See: [Ultralytics YOLO format](https://docs.ultralytics.com/datasets/detect/). Example of a .txt file containing labels for multiple cards:
 ```
-obj_class xcenter ycenter width height
+<obj_class1> <xcenter1> <ycenter1> <width1> <height1>
+<obj_class2> <xcenter2> <ycenter2> <width2> <height2>
+...
 ```
-The data.yaml file is used by the YOLO model to find each part of the dataset and assign each class to its corresponding name. 
+Where each row is a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding boxes can be found for the same card, which makes it easier to find in case of partial occlusions.
 
 No data augmentation has been used for the datasets, as to reduce memory overhead.
+
 ## Training
 The datasets used are:
    * **The Complete Playing Card Dataset** by **Jay Pradip Shah** on Kaggle. See: https://www.kaggle.com/datasets/jaypradipshah/the-complete-playing-card-dataset.
@@ -79,7 +87,8 @@ In order to do this, [Label studio](https://github.com/HumanSignal/labelImg) or 
 
 # Code
 ## 1.Object Detection and Initial Classification
-The YOLO model is trained on the dataset using Kaggle's 2 freely available T4 GPUs. YOLO11s is employed to deliver good performance with enough speed. The training processed has been optimized like this:
+### Training of the model
+The YOLO model is trained on the dataset using Kaggle's 2 freely available T4 GPUs. YOLO11s is employed to deliver good performance with enough speed. The training process has been optimized as in the following code:
 
 ```python
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -87,11 +96,33 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 model = YOLO("/kaggle/working/yolo11s.pt")
 results = model.train(data="/kaggle/working/data.yaml", epochs=100, batch=16, augment=False, save_dir="/kaggle/working/output", patience=40, cache=True, workers=8, device=[0, 1])
 ```
+The model detects a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding boxes can be found for the same card, which makes it easier to find in case of partial occlusions. The bounding boxes are then classified as the suit and the rank they enclose.
+
+### Inference
+
 
 ## 2. Hi-Lo classification/Card Counting
 
+
 ## 3. Visual Overlay
+Since YOLO is trained on bounding boxes enclosing only the suit and the rank of the card, it’s necessary to develop a method for extending these to cover the entire card.
+
+### Finding the homography of the full card
+
+### Color-coding by Hi-Lo class
+As described in the [proposal](./Cv_final_proposal.pdf), each bounding box is color-coded:
+    * **Green** boxes indicate cards valued at +1 (typically 2 through 6)
+    * **Blue** boxes indicate neutral cards with a value of 0 (typically 7 through 9)
+    * **Red** boxes indicate high-value cards that subtract from the count, assigned a value of -1 (typically 10, face cards and aces)
 
 ## 4. Occlusions management
 
+### Short-term occlusions
+
+### Partial occlusions
+
+
 ## 5. Metrics
+
+
+# Results and Discussion
