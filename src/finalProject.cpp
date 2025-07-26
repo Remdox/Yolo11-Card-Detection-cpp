@@ -22,10 +22,18 @@ using namespace cv;
 using namespace Shared;
 
 int main(int argc, char** argv){
-    if(argc < 3){
-        cerr << "Usage: <test image path> <object_detection_dataset path>\n";
+    // TODO: batch processing
+    if(argc < 2){
+        cerr << "Usage: <test image path>\n";
         return -1;
     }
+
+    string image_path = argv[1];
+    Mat frame = imread(image_path, cv::IMREAD_COLOR);
+
+    YOLO_model model;
+    model.detectObjects(frame, frame.rows);
+
 
     return(0);
 }

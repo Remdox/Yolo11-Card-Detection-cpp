@@ -33,36 +33,36 @@ To run the project:
    
 # Datasets
 Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness.
-The program runs using YOLO, which means that the datasets have to follow YOLO's folder structure. See:[YOLO's Dataset Structure for YOLO Classification Tasks](https://docs.ultralytics.com/datasets/classify/).
+The program runs using YOLO, which means that the datasets have to follow YOLO's folder structure. See: [YOLO's Dataset Structure for YOLO Classification Tasks](https://docs.ultralytics.com/datasets/classify/).
 In this specific case, the dataset structure is defined as:
 ```
 <DATASET_PATH>/
 ├── Train/
 │   └── images
 │   │   └── <image1>.jpg
-│   │   ...
+│   │   └──   ...
 │   └── labels
 │       └── <label1>.txt
-│       ...
+│       └──   ...
 └── Validation/
 │   └── images
 │   │   └── <image1>.jpg
-│   │   ...
+│   │   └──   ...
 │   └── labels
 │       └── <label1>.txt
-│       ...
+│       └──   ...
 └──Test/
 │   └── images
 │   │   └── <image1>.jpg
 │   │   └──   ...
 │   └── labels
 │       └── <label1>.txt
-│       ...
+│       └──   ...
 └── data.yaml
 ```
 Where The data.yaml file is used by the YOLO model to find each part of the dataset and assign each class to its corresponding name. 
 
-The labels are .txt files described in YOLO format. See: [Ultralytics YOLO format](https://docs.ultralytics.com/datasets/detect/). Example of a .txt file containing labels for multiple cards:
+The labels are .txt files described in YOLO format. See: [Ultralytics YOLO format](https://docs.ultralytics.com/datasets/detect/) and https://labelformat.com/formats/object-detection/yolov11/. An example of a .txt file containing labels for multiple cards is:
 ```
 <obj_class1> <xcenter1> <ycenter1> <width1> <height1>
 <obj_class2> <xcenter2> <ycenter2> <width2> <height2>
@@ -76,6 +76,7 @@ No data augmentation has been used for the datasets, as to reduce memory overhea
 The datasets used are:
    * **The Complete Playing Card Dataset** by **Jay Pradip Shah** on Kaggle. See: https://www.kaggle.com/datasets/jaypradipshah/the-complete-playing-card-dataset.
    * **Playing Cards Object Detection Dataset** by **Andy8744** on Kaggle. See: https://www.kaggle.com/datasets/andy8744/playing-cards-object-detection-dataset.
+
 The two have been merged into one single dataset available here: https://www.kaggle.com/datasets/marcoannunziata/merged-data/settings. The labels have been adjusted to the data.yaml file used for **The Complete Playing Card Dataset**.
 
 ## Validation
