@@ -4,14 +4,15 @@ add_compile_options(-Wall -g)
 
 # If you move the onnxruntime directory away from externals, you can set the path from here:
 # set(ONNXRUNTIME_DIR "${CMAKE_SOURCE_DIR}/path/...")
-# otherwise, either external is used as fallback:
+# otherwise, either external/onnxruntime-x64-1.21.0 is used as fallback:
 if(NOT DEFINED ONNXRUNTIME_DIR)
-    set(ONNXRUNTIME_DIR "${CMAKE_SOURCE_DIR}/external/onnxruntime")
+    set(ONNXRUNTIME_DIR "${CMAKE_SOURCE_DIR}/external/onnxruntime-x64-1.21.0")
+    message(STATUS "WARNING: ONNXRUNTIME_DIR not defined. Falling back to external/ folder :) \n")
 endif()
 # or, if you don't have external but you have onnxruntime installed on the system, it will be correctly included by cmake.
 
 
-list(APPEND CMAKE_PREFIX_PATH "${ONNXRUNTIME_DIR}")
+list(APPEND CMAKE_PREFIX_PATH "${ONNXRUNTIME_DIR}/lib64/cmake/onnxruntime")
 list(APPEND CMAKE_PREFIX_PATH "/usr/local")
 find_package(OpenCV REQUIRED)
 find_package(onnxruntime REQUIRED CONFIG)

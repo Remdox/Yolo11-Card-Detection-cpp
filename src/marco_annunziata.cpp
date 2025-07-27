@@ -4,24 +4,21 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp> 
-#include <opencv2/dnn.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 
 using namespace std;
 using namespace cv;
-using namespace cv::dnn;
 
 const float CLASS_CONFIDENCE_THRESHOLD = 0.5;
 const float NMS_THRESHOLD = 0.1;
 
-// TODO: setupNet with ONNX Runtime for dynamic input
-YOLO_model::YOLO_model(){
-    model = readNet("../data/model/YOLO11s_small_last_static.onnx");
+YOLO_model::YOLO_model(): env(ORT_LOGGING_LEVEL_WARNING, "YOLOModel"), session(nullptr), sessionOptions(){
+    sessionOptions.SetIntraOpNumThreads(1);
+    sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
 
-    cout << "Running con CPU\n";
-    model.setPreferableBackend(DNN_BACKEND_OPENCV);
-    model.setPreferableTarget(DNN_TARGET_CPU);
+    const char* modelPath = "../data/model/last.onnx";
+    session = Ort::Session(env, modelPath, sessionOptions);
 }
 
 // YOLO's grid needs a square image as input
@@ -43,13 +40,103 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     std::string line;
     while (getline(ifs, line)) dataClasses.push_back(line);
 
-    // format input correctly and pass it to the OpenCV DNN
+    // OPTION 1: Use original image size -> slow for big images
+    int inputHeight = img.rows;
+    int inputWidth = img.cols;
+    
+    // Ensure dimensions are multiples of 32, as required by YOLO11
+    inputHeight = ((inputHeight + 31) / 32) * 32;
+    inputWidth = ((inputWidth + 31) / 32) * 32;
+    
+    Mat inputImg;
+    resize(img, inputImg, Size(inputWidth, inputHeight));
+    
+    // No scaling factors needed since we're using original proportions
+    float scaleX = static_cast<float>(img.cols) / inputWidth;
+    float scaleY = static_cast<float>(img.rows) / inputHeight;
+
+    /*TODO Adaptive sizing based on image aspect ratio
+    float aspectRatio = static_cast<float>(img.cols) / img.rows;
+    int inputSize;
+    
+    if (aspectRatio > 1.0f) {
+        // Landscape: fix width, adjust height
+        inputSize = 640;
+        inputWidth = inputSize;
+        inputHeight = static_cast<int>(inputSize / aspectRatio);
+    } else {
+        // Portrait: fix height, adjust width  
+        inputSize = 640;
+        inputHeight = inputSize;
+        inputWidth = static_cast<int>(inputSize * aspectRatio);
+    }
+    
+    // Round to nearest multiple of 32
+    inputWidth = ((inputWidth + 31) / 32) * 32;
+    inputHeight = ((inputHeight + 31) / 32) * 32;
+    
+    resize(img, inputImg, Size(inputWidth, inputHeight));
+    float scaleX = static_cast<float>(img.cols) / inputWidth;
+    float scaleY = static_cast<float>(img.rows) / inputHeight;*/
+
+    
+    cout << "Dynamic input size: " << inputWidth << "x" << inputHeight << endl;
+
+    // Create dynamic input tensor
+    std::vector<int64_t> inputShape = {1, 3, inputHeight, inputWidth};
+    size_t inputTensorSize = 1 * 3 * inputHeight * inputWidth;
+    std::vector<float> inputData(inputTensorSize);
+
+    // Convert Mat to tensor
+    for (int y = 0; y < inputHeight; ++y) {
+        for (int x = 0; x < inputWidth; ++x) {
+            Vec3b pixel = inputImg.at<Vec3b>(y, x);
+            inputData[0 * inputHeight * inputWidth + y * inputWidth + x] = pixel[2] / 255.0f; // R
+            inputData[1 * inputHeight * inputWidth + y * inputWidth + x] = pixel[1] / 255.0f; // G  
+            inputData[2 * inputHeight * inputWidth + y * inputWidth + x] = pixel[0] / 255.0f; // B
+        }
+    }
+
+    // Create ONNX tensor with dynamic shape
+    auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
+        memoryInfo, inputData.data(), inputTensorSize, inputShape.data(), inputShape.size()
+    );
+
+    // Run inference
+    auto inputName = session.GetInputNameAllocated(0, allocator);
+    auto outputName = session.GetOutputNameAllocated(0, allocator);
+    
+    std::vector<const char*> inputNames = {inputName.get()};
+    std::vector<const char*> outputNames = {outputName.get()};
+    
+    auto outputTensors = session.Run(Ort::RunOptions{nullptr},
+                                   inputNames.data(), &inputTensor, 1,
+                                   outputNames.data(), 1);
+
+    // Get dynamic output tensor info
+    auto tensorInfo = outputTensors[0].GetTensorTypeAndShapeInfo();
+    auto shape = tensorInfo.GetShape();
+    float* outputData = outputTensors[0].GetTensorMutableData<float>();
+    
+    int batchSize = static_cast<int>(shape[0]);
+    int numChannels = static_cast<int>(shape[1]); 
+    int numDetections = static_cast<int>(shape[2]);  // This will vary based on input size!
+    
+    cout << "Dynamic output shape: [" << batchSize << ", " << numChannels << ", " << numDetections << "]" << endl;
+
+
+
+    /* format input correctly and pass it to the OpenCV DNN
     Mat inputImg = formatYoloInput(img);
     Mat blob;
 
     double normalizationFactor = 1.0 / 255.0;
     blobFromImage(inputImg, blob, normalizationFactor, Size(640, 640), Scalar(), true, false);
     model.setInput(blob);
+
+    std::vector<int64_t> inputDims = {1, 3, h, w};
+    std::vector<float> inputTensorValues(blob.begin<float>(), blob.end<float>()); 
 
 
     // In the OpenCV API, forward returns a vector of 3D matrices [batch_size, dimensions, rows], where each matrix is an output layer
@@ -152,5 +239,5 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     namedWindow("Prediction with Box", WINDOW_NORMAL);
     imshow("Prediction with Box", resultImg);
     waitKey(0);
-    destroyAllWindows();
+    destroyAllWindows();*/
 }

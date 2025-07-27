@@ -5,7 +5,6 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/dnn.hpp>
 #include <onnxruntime_cxx_api.h>
 #include "shared.hpp"
 #include <iostream>
@@ -21,7 +20,10 @@ struct Detection{
 
 class YOLO_model{
     private:
-        cv::dnn::Net model;
+        Ort::Env env;
+        Ort::Session session;
+        Ort::SessionOptions sessionOptions;
+        Ort::AllocatorWithDefaultOptions allocator;
         std::vector<Detection> detections;
     public:
         YOLO_model();

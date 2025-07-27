@@ -23,11 +23,11 @@ Table of Contents
    
 # Instructions
 ## Requirements
--CMake version:
--OpenCV version:
--ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project, in [external](./external) and CMake is already configured to find the binaries either in this folder or in the system's directories. If there are problems on using this library with CMake on Linux, you can manually install it:
+* CMake version:
+* OpenCV version:
+* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project, in [external](./external) and **CMake is already configured to find the binaries either in this folder or in the system's directories**. If there are problems on using this library with CMake on Linux, you can manually install it:
 
-### LINUX
+**On LINUX**
 Option 1 - Automatic (system-wide) installation using the bash script:
 * Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh)
 * See section: [Runnning the project](#Running-the-project)
@@ -39,7 +39,7 @@ Option 2 - Manual (global) installation:
 * Copy the include/onnxruntime/ folder in /usr/local/include/
 * update the libraries cache running ldconfig
 
-### Windows
+**On WINDOWS**
 
 ## Running the project
 
