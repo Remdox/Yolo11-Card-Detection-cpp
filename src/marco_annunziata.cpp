@@ -5,6 +5,7 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp> 
 #include <opencv2/dnn.hpp>
+#include <onnxruntime_cxx_api.h>
 #include <algorithm>
 
 using namespace std;
@@ -147,7 +148,6 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         rectangle(resultImg, finalDetection.boundingBox, Scalar(0, 255, 0), 2);
         putText(resultImg, dataClasses[finalDetection.classId] + " " + std::to_string(finalDetection.classConfidence), Point(finalDetection.boundingBox.x, finalDetection.boundingBox.y - 5), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0), 1);
         cout << "Class confidence score:" << finalDetection.classConfidence << endl;
-        // resultImg = Mat::zeros(resultImg.rows, resultImg.cols, CV_8UC3);
     }
     namedWindow("Prediction with Box", WINDOW_NORMAL);
     imshow("Prediction with Box", resultImg);

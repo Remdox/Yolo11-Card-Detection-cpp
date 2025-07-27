@@ -22,14 +22,33 @@ Table of Contents
 [Read the full proposal](./Cv_final_proposal.pdf).
    
 # Instructions
+## Requirements
+-CMake version:
+-OpenCV version:
+-ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project, in [external](./external) and CMake is already configured to find the binaries either in this folder or in the system's directories. If there are problems on using this library with CMake on Linux, you can manually install it:
 
-@@@@@@__TEMPORARY CONTENT__@@@@@@@
+### LINUX
+Option 1 - Automatic (system-wide) installation using the bash script:
+* Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh)
+* See section: [Runnning the project](#Running-the-project)
+
+Option 2 - Manual (global) installation:
+* Extract onnxruntime-linux-x64-1.21.0.tgz
+* Copy the .so files of lib in /usr/local/lib64/
+* Copy the .cmake files in /usr/local/lib64/cmake/onnxruntime/
+* Copy the include/onnxruntime/ folder in /usr/local/include/
+* update the libraries cache running ldconfig
+
+### Windows
+
+## Running the project
 
 To run the project:
 1. cd into build/
 2. cmake ..
 3. make -> compiles (doesn't compile if there are compiler errors)
-4. ./finalProject <parameters> (to define)
+4. ./finalProject <image_to_test> (WIP, to define)
+
    
 # Datasets
 Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness.
