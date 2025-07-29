@@ -5,6 +5,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/dnn.hpp>
 #include <onnxruntime_cxx_api.h>
 #include "shared.hpp"
 #include <iostream>
@@ -21,9 +22,11 @@ struct Detection{
 class YOLO_model{
     private:
         Ort::Env env;
+        static void logger(void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message);
         Ort::Session session;
         Ort::SessionOptions sessionOptions;
         Ort::AllocatorWithDefaultOptions allocator;
+        const int YOLO_TARGET_INPUT_SIZE = 640; // MUST be multiple of 32. See YOLO_model::detectObjects implementation.
         std::vector<Detection> detections;
     public:
         YOLO_model();

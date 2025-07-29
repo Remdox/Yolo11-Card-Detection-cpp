@@ -1,16 +1,8 @@
 .vscode/
 compile_commands.json
 CMakeFiles/
-build/CMakeCache.txt
-build/cmake_install.cmake
-build/compile_commands.json
-build/libmarco_annunziata.a
-build/libhermann_serain.a
-build/libsveva_turola.a
-build/sveva_turola.a
-build/libshared.a
-build/Makefile
 .cache/
 output/*
 data/*
 scripts/*
+build/*
