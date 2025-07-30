@@ -15,7 +15,7 @@
 struct Detection{
     int classId = -1;
     std::string className = "undefined";
-    int classConfidence = 0;
+    float classConfidence = 0;
     cv::Rect boundingBox = cv::Rect(0,0,0,0);
 };
 
@@ -28,9 +28,13 @@ class YOLO_model{
         Ort::AllocatorWithDefaultOptions allocator;
         const int YOLO_TARGET_INPUT_SIZE = 640; // MUST be multiple of 32. See YOLO_model::detectObjects implementation.
         std::vector<Detection> detections;
+        std::string modelName = "Yolo";
     public:
         YOLO_model();
-        void detectObjects(cv::Mat &img, int inputSize);
+        std::vector<Detection> detectObjects(cv::Mat &img, std::vector<std::string> dataClasses, bool enable_letterbox_padding=true);
+        std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
+        void drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg);
+        void setModelName(std::string modelName);
 };
 
 #endif

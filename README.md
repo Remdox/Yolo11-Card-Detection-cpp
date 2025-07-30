@@ -25,7 +25,7 @@ Table of Contents
 ## Requirements
 * CMake version:
 * OpenCV version:
-* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project, in [external](./external) and **CMake is already configured to find the binaries either in this folder or in the system's directories**. If there are problems on using this library with CMake on Linux, you can manually install it:
+* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. If there are problems on using this library with CMake on Linux, you can manually install it:
 
 **On LINUX**
 Option 1 - Automatic (system-wide) installation using the bash script:
@@ -42,7 +42,7 @@ Option 2 - Manual (global) installation:
 **On WINDOWS**
 
 ## Running the project
-
+Make sure to put the videos to use for testing in the data/test/ directory and the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line.
 To run the project:
 1. cd into build/
 2. cmake ..

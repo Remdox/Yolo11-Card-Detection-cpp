@@ -28,11 +28,17 @@ int main(int argc, char** argv){
         return -1;
     }
 
+    string labelsFilename = "../data/model/labels.txt";
+    YOLO_model model;
+    model.setModelName("YOLO11s");
+
     string image_path = argv[1];
     Mat frame = imread(image_path, cv::IMREAD_COLOR);
 
-    YOLO_model model;
-    model.detectObjects(frame, frame.rows);
+    vector<string> dataClasses = model.getDataClasses(labelsFilename);
+    model.detectObjects(frame, dataClasses, true);
+    model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+    // destroyAllWindows();
 
 
     return(0);

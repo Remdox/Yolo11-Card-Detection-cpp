@@ -62,16 +62,9 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
     }
 }
 
-
-void YOLO_model::detectObjects(Mat &img, int inputSize){
+std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataClasses, bool enable_letterbox_padding){
     /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
              such that every step is perfectly clear to everyone reading this code. */
-
-    // retrieving classes for later
-    vector<string> dataClasses;
-    ifstream ifs("../data/model/labels.txt");
-    string line;
-    while (getline(ifs, line)) dataClasses.push_back(line);
 
     // Giving the original image size is possible in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
     // The input needs to be resized for the YOLO model anyway to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO
@@ -105,8 +98,8 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     Mat resizedImg;
     float resizedWidth    = -1;
     float resizedHeight   = -1;
-    int xPaddedImgCorner  = -1; // TODO move inside else
-    int yPaddedImgCorner  = -1;
+    int xPaddedImgCorner  = -100; // -> It represents the upper left corner of the centered image after letterbox padding, will be useful later to center the image
+    int yPaddedImgCorner  = -100;
 
     float imgAspectRatio    = static_cast<float>(inputWidth) / inputHeight;
     if(inputWidth == inputHeight){ /* Case A: image is square, just resize */
@@ -121,24 +114,31 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
             resizedHeight = YOLO_TARGET_INPUT_SIZE / imgAspectRatio; // imgAspectRatio > 1 -> have to divide so that the height follows the width increase/decrease
             resizedHeight = (static_cast<int>(resizedHeight) / 32) * 32; // Ensure dimensions of the image are multiples of 32, as required by YOLO11 (here width is already multiple of 32)
             
-            xPaddedImgCorner = 0;                                    // It represents the corner of the centered image after letterbox padding, will be useful later to center the image
-            yPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedHeight/2);
+            if(enable_letterbox_padding == true){
+                xPaddedImgCorner = 0;
+                yPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedHeight/2);
+            }
         }
         else{
             resizedHeight = YOLO_TARGET_INPUT_SIZE;
             resizedWidth  = YOLO_TARGET_INPUT_SIZE * imgAspectRatio; // imgAspectRatio < 1 -> have to multiply to make the height follow the width value
             resizedWidth  = (static_cast<int>(resizedWidth) / 32) * 32;
 
-            yPaddedImgCorner = 0;                                    // It represents the corner of the centered image after letterbox padding, will be useful later to center the image
-            xPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedWidth/2);
+            if(enable_letterbox_padding == true){
+                yPaddedImgCorner = 0;
+                xPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedWidth/2);
+            }
         }
 
         Mat tempImg;
         resize(img, tempImg, Size(static_cast<int>(resizedWidth), static_cast<int>(resizedHeight)));
 
         //letterbox padding
-        resizedImg = Mat::zeros(YOLO_TARGET_INPUT_SIZE, YOLO_TARGET_INPUT_SIZE, CV_8UC3);
-        tempImg.copyTo(resizedImg(Rect(xPaddedImgCorner, yPaddedImgCorner, resizedWidth, resizedHeight)));
+        if(enable_letterbox_padding == true){
+            resizedImg = Mat::zeros(YOLO_TARGET_INPUT_SIZE, YOLO_TARGET_INPUT_SIZE, CV_8UC3);
+            tempImg.copyTo(resizedImg(Rect(xPaddedImgCorner, yPaddedImgCorner, resizedWidth, resizedHeight)));
+        }
+        else resizedImg = tempImg.clone();
     }
 
     float resizeScalingFactor[2] = {
@@ -163,9 +163,9 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     size_t inputTensorSize = 1 * 3 * resizedHeight * resizedWidth;
     vector<float> inputData(inputTensorSize); // the input image is flattened into a mono-dimensional array
 
+    // Converting image data from cv::Mat to tensor (normalization to [0,1] and converting (cv::Mat) BGR to RGB as the YOLO model requires)
     double normalizationFactor = 1.0 / 255.0;
 
-    // Converting image data from cv::Mat to tensor (normalization to 0-1 and converting cv::Mat's BGR to RGB as the YOLO model requires)
     for (int row = 0; row < resizedHeight; row++) {
         for (int col = 0; col < resizedWidth; col++) {
             Vec3b pixel = resizedImg.at<Vec3b>(row, col);                                                            // cv::Mat -> Tensor
@@ -283,8 +283,10 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
             float boxHeight = currentDetection[3];
 
             /* removing coordinates translation caused by the padding */
-            xCenter -= xPaddedImgCorner;
-            yCenter -= yPaddedImgCorner;
+            if(enable_letterbox_padding == true){
+                xCenter -= xPaddedImgCorner;
+                yCenter -= yPaddedImgCorner;
+            }
 
             /* computing the bounding box of the detected object and scaling it to the original image size */
             int xPosScaled = int((xCenter - 0.5f*boxWidth) * resizeScalingFactor[0]);
@@ -308,9 +310,8 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     /* Non-Maxima Suppression */
     vector<int> resultNMS;
     cv::dnn::NMSBoxes(boundingBoxes, detectedClassConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
-    Mat resultImg = img.clone();
 
-    /* Drawing the NMS filtered boxes */
+    /* Constructing the final array of detections after NMS */
     for(auto finalBoxIndex : resultNMS){
         Detection finalDetection;
         finalDetection.classId         = classIds[finalBoxIndex];
@@ -318,13 +319,36 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         finalDetection.classConfidence = detectedClassConfidences[finalBoxIndex];
         finalDetection.boundingBox     = boundingBoxes[finalBoxIndex];
         detections.push_back(finalDetection);
-        
-        rectangle(resultImg, finalDetection.boundingBox, Scalar(0, 255, 0), 2);
-        string label = finalDetection.className + " " + to_string(static_cast<int>(finalDetection.classConfidence * 100)) + "%";
-        putText(resultImg, label, Point(finalDetection.boundingBox.x, finalDetection.boundingBox.y - 5), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0), 1);
     }
-    namedWindow("Prediction with Box", WINDOW_NORMAL);
-    imshow("Prediction with Box", resultImg);
+
+    return detections;
+}
+
+vector<string> YOLO_model::getDataClasses(string labelsFilename){
+    vector<string> dataClasses;
+    ifstream ifs(labelsFilename);
+    string line;
+    while (getline(ifs, line))
+        dataClasses.push_back(line);
+    return dataClasses;
+}
+
+void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
+    Mat resultImg = img.clone();
+    for (auto detection : detections)
+    {
+        int thickness = max(1, int(max(inputHeight, inputWidth) / 640));
+        rectangle(resultImg, detection.boundingBox, Scalar(0, 255, 0), 2 * thickness);
+        string label = detection.className + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
+        putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, Scalar(0, 255, 0), 1.5 * thickness);
+    }
+    std::string windowTitle = modelName + " - " + std::to_string(detections.size()) + " detections";
+    namedWindow(windowTitle, WINDOW_NORMAL);
+    imshow(windowTitle, resultImg);
     waitKey(0);
-    destroyAllWindows();
+}
+
+
+void YOLO_model::setModelName(string modelName){
+    this->modelName = modelName;
 }
