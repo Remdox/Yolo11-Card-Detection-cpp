@@ -1,4 +1,4 @@
-
+// AUTHOR: Marco Annunziata. https://github.com/Remdox
 #include "marco_annunziata.hpp"
 #include "shared.hpp"
 #include <opencv2/core/types.hpp>
@@ -7,19 +7,22 @@
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 
+// a couple of variables could be useful to keep so I use this to avoid g++ warnings
+#define UNUSED(x) (void)(x)
+
 using namespace std;
 using namespace cv;
 using namespace cv::dnn;
 
 const float CLASS_CONFIDENCE_THRESHOLD = 0.5;
-const float NMS_THRESHOLD = 0.1;
+const float NMS_THRESHOLD = 0.5;
 
 YOLO_model::YOLO_model(): env(ORT_LOGGING_LEVEL_VERBOSE, "YOLOModel", YOLO_model::logger, this), session(nullptr), sessionOptions(){
     sessionOptions.SetIntraOpNumThreads(1);
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     sessionOptions.SetLogId("YOLOModel");
 
-    const char* modelPath = "../data/model/last.onnx";
+    const char* modelPath = "../data/model/YOLO11s_big_best_dynamic.onnx";
     session = Ort::Session(env, modelPath, sessionOptions);
 }
 
@@ -61,14 +64,17 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
 
 
 void YOLO_model::detectObjects(Mat &img, int inputSize){
-    // retrieve classes for later
+    /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
+             such that every step is perfectly clear to everyone reading this code. */
+
+    // retrieving classes for later
     vector<string> dataClasses;
     ifstream ifs("../data/model/labels.txt");
     string line;
     while (getline(ifs, line)) dataClasses.push_back(line);
 
     // Giving the original image size is possible in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
-    // The input needs to be resized for the YOLO model anyway to have good accuracy, so pre-processing of the image is still needed and dynamic input is not used for YOLO
+    // The input needs to be resized for the YOLO model anyway to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO
     int inputHeight = img.rows;
     int inputWidth  = img.cols;
 
@@ -97,8 +103,8 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     */
     
     Mat resizedImg;
-    float resizedWidth = -1;
-    float resizedHeight = -1;
+    float resizedWidth    = -1;
+    float resizedHeight   = -1;
     int xPaddedImgCorner  = -1; // TODO move inside else
     int yPaddedImgCorner  = -1;
 
@@ -113,7 +119,6 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         if(imgAspectRatio > 1.0f){
             resizedWidth  = YOLO_TARGET_INPUT_SIZE;
             resizedHeight = YOLO_TARGET_INPUT_SIZE / imgAspectRatio; // imgAspectRatio > 1 -> have to divide so that the height follows the width increase/decrease
-            //cout << "h before adjusting: " << resizedHeight << endl;
             resizedHeight = (static_cast<int>(resizedHeight) / 32) * 32; // Ensure dimensions of the image are multiples of 32, as required by YOLO11 (here width is already multiple of 32)
             
             xPaddedImgCorner = 0;                                    // It represents the corner of the centered image after letterbox padding, will be useful later to center the image
@@ -122,7 +127,6 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         else{
             resizedHeight = YOLO_TARGET_INPUT_SIZE;
             resizedWidth  = YOLO_TARGET_INPUT_SIZE * imgAspectRatio; // imgAspectRatio < 1 -> have to multiply to make the height follow the width value
-            //cout << "w before adjusting: " << resizedWidth << endl;
             resizedWidth  = (static_cast<int>(resizedWidth) / 32) * 32;
 
             yPaddedImgCorner = 0;                                    // It represents the corner of the centered image after letterbox padding, will be useful later to center the image
@@ -130,8 +134,8 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         }
 
         Mat tempImg;
-        resize(img, resizedImg, Size(static_cast<int>(resizedWidth), static_cast<int>(resizedHeight)));
         resize(img, tempImg, Size(static_cast<int>(resizedWidth), static_cast<int>(resizedHeight)));
+
         //letterbox padding
         resizedImg = Mat::zeros(YOLO_TARGET_INPUT_SIZE, YOLO_TARGET_INPUT_SIZE, CV_8UC3);
         tempImg.copyTo(resizedImg(Rect(xPaddedImgCorner, yPaddedImgCorner, resizedWidth, resizedHeight)));
@@ -141,17 +145,6 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
         static_cast<float>(inputWidth)  / resizedWidth,
         static_cast<float>(inputHeight) / resizedHeight 
     };
-    
-    // testing correct resizing
-    cout << "Dynamic input size: W = " << inputWidth << " h = " << inputHeight << endl;
-    cout << "Resized input size (after adjusting): W = " << resizedWidth << " h = " << resizedHeight << endl;
-    cout << "Padded corner: X = " << xPaddedImgCorner << " Y = " << yPaddedImgCorner << endl;
-    cout << "resize scaling factor: X = " << resizeScalingFactor[0] << " Y = " << resizeScalingFactor[1] << endl;
-
-    namedWindow("resized", WINDOW_NORMAL);
-    imshow("resized", resizedImg);
-    waitKey(0);
-
 
     /* TENSORS
     OnnxRuntime needs a tensor as input.
@@ -159,45 +152,53 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     It's a multi-dimensional array of heterogeneous data types (float, int ...) which is optimized for computations.
     Tensors are useful because they are a convenient data structure for parallelizing GPU computations during DNN inference.*/
     
+    // INPUT TENSOR
     // In OnnxRuntime the tensor is defined by its data (an array) and its shape (dimensions of the multi-dimensional array)
-    // Create dynamic input tensor
-    vector<int64_t> inputShape = {1, 3, static_cast<int>(resizedWidth), static_cast<int>(resizedHeight)}; // 4D tensor
+    // Note: ONNX has the convention to have the nput tensor shape following the NCHW order, where N = batch size, C = nºchannels, H = height, W = width of the image.
+    // For convention height comes before width because data in memory is accessed along the row: data[y][x]
+    // You can check the shape of input tensor of your model by inspecting the .onnx file with https://netron.app/
+    
+    /* Preparing the parameters for the dynamic INPUT TENSOR */
+    vector<int64_t> inputShape = {1, 3, static_cast<int>(resizedHeight), static_cast<int>(resizedWidth)}; // 4D tensor
     size_t inputTensorSize = 1 * 3 * resizedHeight * resizedWidth;
     vector<float> inputData(inputTensorSize); // the input image is flattened into a mono-dimensional array
 
     double normalizationFactor = 1.0 / 255.0;
 
-    // Converting image data from cv::Mat to tensor
+    // Converting image data from cv::Mat to tensor (normalization to 0-1 and converting cv::Mat's BGR to RGB as the YOLO model requires)
     for (int row = 0; row < resizedHeight; row++) {
         for (int col = 0; col < resizedWidth; col++) {
-            Vec3b pixel = resizedImg.at<Vec3b>(row, col);                                                      // cv::Mat -> Tensor
+            Vec3b pixel = resizedImg.at<Vec3b>(row, col);                                                            // cv::Mat -> Tensor
             inputData[2 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[0] * normalizationFactor; //    B    ->   R
             inputData[1 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[1] * normalizationFactor; //    G         G
             inputData[0 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[2] * normalizationFactor; //    R    ->   B
         }
     }
 
-    // Allocating the tensor on CPU
-    auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault); // Allocating the input tensor on CPU
     
     // Creating the input tensor (which is a view of the data, NOT a deep copy!)
     Ort::Value inputOnnxTensor = Ort::Value::CreateTensor<float>(memoryInfo, inputData.data(), inputTensorSize, inputShape.data(), inputShape.size());
 
-    // the allocations of these strings need to be freed with some boilerplate code later
-    auto inputName = session.GetInputNameAllocated(0, allocator);
-    auto outputName = session.GetOutputNameAllocated(0, allocator);
-    
+    // retrieving now as string the name of the first input and output nodes
+    // the allocations of these strings are automatically freed by the session
+    auto inputNodeName = session.GetInputNameAllocated(0, allocator);
+    auto outputNodeName = session.GetOutputNameAllocated(0, allocator);
+
     // The API needs the array of inputs to set and the array of outputs to get (or even just a portion of output if needed).
-    // So here you are setting the ORDER of the inputs such that the outputs are ordered accordingly
-    vector<const char*> inputNames = {inputName.get()};
-    vector<const char*> outputNames = {outputName.get()};
+    // So here you are setting the ORDER of the input tensors and the ORDER of the outputs.
+    // This step is useful for models which have multiple input and output tensors where the order matters.
+    // In our case we just have a 1 to 1 correspondence of input-output so the arrays passed will only have 1 item
+    vector<const char*> inputNodeNames = {inputNodeName.get()};
+    vector<const char*> outputNodeNames = {outputNodeName.get()};
     
     // Running the inference
     auto outputTensors = session.Run(
         Ort::RunOptions{nullptr},               // e.g set a verbosity level only for this run
-        inputNames.data(), &inputOnnxTensor, 1, // input to set
-        outputNames.data(),                     // output to take
-        1);
+        inputNodeNames.data(), &inputOnnxTensor, inputNodeNames.size(), // input to set (=1 input image)
+        outputNodeNames.data(),                 // output to take
+        outputNodeNames.size()                  // actually = 1 output tensors because YOLO has only 1 output layer
+    );
 
     /* OUTPUT TENSOR
     // YOLO11 is pre-trained by default on the COCO dataset, so the number of channels sould be:
@@ -223,41 +224,53 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
     // Dynamic input/output shapes are not supported by OpenCV, but they are supported by ONNX Runtime.
     // In this case, OnnxRuntime is adopted instead of OpenCV more because of the superior inference efficency rather than the support of dynamic models.
     // See: https://github.com/orgs/ultralytics/discussions/17254
+    // You can also see the shape of the ouput layer by importing the .onnx file in https://netron.app/
     */
 
-    // Get dynamic output tensor info (data, shape, count)
+    /* Getting dynamic output tensor info (data, shape, count) */
     auto& outputTensor = outputTensors[0]; // In the case of YOLO11, only 1 output layer is used, so there is only 1 output tensor (outputTensors[0])
     auto tensorInfo = outputTensor.GetTensorTypeAndShapeInfo();
-    auto tensorCount = tensorInfo.GetElementCount();
+    auto tensorCount = tensorInfo.GetElementCount(); UNUSED(tensorCount);
     auto tensorShape = tensorInfo.GetShape();
     float* outputData = outputTensor.GetTensorMutableData<float>(); // the output values are flattened into a 1D array
-    // outputData[0..4...] = (x, y, width, height, confidence, classProb1, classProb2, ..., classProb80)
+    // YOLO11: outputData[0..4...] = (x, y, width, height, confidence, classProb1, classProb2, ..., classProb80)
     
-    int batchSize = static_cast<int>(tensorShape[0]);
+    int batchSize = static_cast<int>(tensorShape[0]); UNUSED(batchSize);
     int numChannels = static_cast<int>(tensorShape[1]); 
     int numDetections = static_cast<int>(tensorShape[2]);  // This will vary based on input size and padding area
     
-    cout << "Dynamic output shape:[" << batchSize << ", " << numChannels << ", " << numDetections << "], count:" << tensorCount << endl;
+    // NOTE: The output tensor is a matrix like this, if the batch size =1:
+    //          class1_detection1          class1_detection2          ...         class1_detectionN
+    //              ....                                                                 ....
+    //          class57_detection1                                                class57_detectionN
 
     vector<int> classIds;
     vector<float> detectedClassConfidences;
     vector<Rect> boundingBoxes;
 
+    /* Declaring things used in the post-process phase */
+    Mat classScores;
+    Point classId;
+    double maxClassScore;
+
+    // I want to iterate through the output as a flat 1D array, so that i can use a pointer instead of copying values
+    // When doing this, I need the output to have detections as rows and classes as columns so that I can evaluate the bounding box of each detection.
+    //          class1_detection1          class1_detection2          ...         class1_detectionN         TRANSPOSE         detection1_class1          detection1_class2          ...         detection1_class57
+    //              ....                                                                 ....                  --->               ....                                                                  ....
+    //          class57_detection1                                                class57_detectionN                          detectionN_class1                                                 detectionN_class57
+    // This is why a Mat is constructed from the output data and its transposition t() is taken
+    Mat outputDataMat= Mat(numChannels, numDetections, CV_32F, outputData).t(); // -> now the data is in the order we needed! [Det1Class1 Det1Class2 ... Det1Class57 Det2Class1 ...]
+    // -> This Mat constructor with the fourth paramter is defined as:
+    // Mat(int rows, int cols, int type, void* data, size_t step=AUTO_STEP);
+    // The fourth parameter is just a pointer to the data! It doesn't need to copy the values!
+    // So this constructor just wraps pointer outputData in a matrix header, resulting a lot more efficient.
+
     for(int i = 0; i < numDetections; i++){
-        
-        float* currentDetection = outputData + (i * numChannels); // 1D array of the 57 elements of one detection
-        if(i == 0){
-            for(int j = 0; j < numChannels; j++){
-                cout << "data " << j << ": " << currentDetection[j] << endl;
-            }
-        }
-        // The Mat constructor doesn't copy the data, it just wraps pointer classes_scores in a matrix header,
-        // so this is used instead of the typical Mat constructor as it is more efficient.
-        // Also, minMaxLoc accepts as input a Mat and as output a Point, so this is how scores and classId will be defined.
-        float * firstClassScore = currentDetection + 4;
-        Mat classScores(1, numChannels-4, CV_32FC1, firstClassScore);
-        Point classId;
-        double maxClassScore;
+        float* currentDetection = outputDataMat.ptr<float>(i); // 1 detection corresponds to a 1D array of the 57 elements of the detection
+        float* firstClassScore = currentDetection + 4;
+        classScores = Mat(1, numChannels-4, CV_32FC1, firstClassScore); // using efficient constructor
+        // Also, minMaxLoc accepts as input a Mat and as output a Point, so this is why classScores and classId are defined as Mat and Point.
+
         minMaxLoc(classScores, 0, &maxClassScore, 0, &classId);
 
         if(maxClassScore > CLASS_CONFIDENCE_THRESHOLD){
@@ -269,24 +282,19 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
             float boxWidth  = currentDetection[2];
             float boxHeight = currentDetection[3];
 
-            // removing coordinates translation caused by the padding
+            /* removing coordinates translation caused by the padding */
             xCenter -= xPaddedImgCorner;
             yCenter -= yPaddedImgCorner;
 
-            // // computing the bounding box of the detected object and scaling it to the original image size
+            /* computing the bounding box of the detected object and scaling it to the original image size */
             int xPosScaled = int((xCenter - 0.5f*boxWidth) * resizeScalingFactor[0]);
             int yPosScaled = int((yCenter - 0.5f*boxHeight) * resizeScalingFactor[1]);
             int bWScaled = int(boxWidth  * resizeScalingFactor[0]);
             int bHScaled = int(boxHeight * resizeScalingFactor[1]);
 
-            Rect box = Rect(
-                xPosScaled,  // x corner position
-                yPosScaled,  // y corner position
-                bWScaled,    // box width
-                bHScaled     // box height
-            );
+            Rect box = Rect(xPosScaled, yPosScaled, bWScaled, bHScaled);
 
-            // Clamping bounding box to image boundaries
+            /* Clamping bounding box to image boundaries */
             box.x = max(0, box.x);
             box.y = max(0, box.y);
             box.width = min(box.width, img.cols - box.x);
@@ -296,25 +304,24 @@ void YOLO_model::detectObjects(Mat &img, int inputSize){
             boundingBoxes.push_back(box);
         }
     }
-    
-    // Apply Non-Maxima Suppression
+
+    /* Non-Maxima Suppression */
     vector<int> resultNMS;
     cv::dnn::NMSBoxes(boundingBoxes, detectedClassConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
     Mat resultImg = img.clone();
 
-    // Draw the NMS filtered boxes
+    /* Drawing the NMS filtered boxes */
     for(auto finalBoxIndex : resultNMS){
         Detection finalDetection;
-        finalDetection.classId = classIds[finalBoxIndex];
-        finalDetection.className = dataClasses[finalDetection.classId];
+        finalDetection.classId         = classIds[finalBoxIndex];
+        finalDetection.className       = dataClasses[finalDetection.classId];
         finalDetection.classConfidence = detectedClassConfidences[finalBoxIndex];
-        finalDetection.boundingBox = boundingBoxes[finalBoxIndex];
+        finalDetection.boundingBox     = boundingBoxes[finalBoxIndex];
         detections.push_back(finalDetection);
         
         rectangle(resultImg, finalDetection.boundingBox, Scalar(0, 255, 0), 2);
         string label = finalDetection.className + " " + to_string(static_cast<int>(finalDetection.classConfidence * 100)) + "%";
         putText(resultImg, label, Point(finalDetection.boundingBox.x, finalDetection.boundingBox.y - 5), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0), 1);
-        cout << "Class: " << finalDetection.className << " Confidence: " << finalDetection.classConfidence << endl;
     }
     namedWindow("Prediction with Box", WINDOW_NORMAL);
     imshow("Prediction with Box", resultImg);
