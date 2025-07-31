@@ -35,6 +35,7 @@ class YOLO_model{
         std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
         void drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg);
         void setModelName(std::string modelName);
+        std::string getModelName();
 };
 
 #endif

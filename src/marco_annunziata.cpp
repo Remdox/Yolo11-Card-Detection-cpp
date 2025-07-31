@@ -7,7 +7,7 @@
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 
-// a couple of variables could be useful to keep so I use this to avoid g++ warnings
+// A couple of variables could be useful to keep so I use this in order to avoid g++ warnings
 #define UNUSED(x) (void)(x)
 
 using namespace std;
@@ -41,7 +41,7 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
         default:                        severityStr = "UNKNOWN"; break;
     }
 
-    // concatenating the output into a single string buffer to use later when writing into the log file
+    // concatenating the output into a single string buffer to write into the log file
     std::ostringstream os;
     os << "[" << (logid ? logid : "no-logid") << "] "
        << severityStr << " | " << (category ? category : "") << " @ "
@@ -102,7 +102,8 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     int yPaddedImgCorner  = -100;
 
     float imgAspectRatio    = static_cast<float>(inputWidth) / inputHeight;
-    if(inputWidth == inputHeight){ /* Case A: image is square, just resize */
+    if(inputWidth == inputHeight){
+        /* Case A: image is square, just resize */
         resizedWidth   = YOLO_TARGET_INPUT_SIZE;
         resizedHeight  = YOLO_TARGET_INPUT_SIZE;
         resize(img, resizedImg, Size(static_cast<int>(resizedWidth), static_cast<int>(resizedHeight)));
@@ -112,7 +113,7 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
         if(imgAspectRatio > 1.0f){
             resizedWidth  = YOLO_TARGET_INPUT_SIZE;
             resizedHeight = YOLO_TARGET_INPUT_SIZE / imgAspectRatio; // imgAspectRatio > 1 -> have to divide so that the height follows the width increase/decrease
-            resizedHeight = (static_cast<int>(resizedHeight) / 32) * 32; // Ensure dimensions of the image are multiples of 32, as required by YOLO11 (here width is already multiple of 32)
+            resizedHeight = (static_cast<int>(resizedHeight) / 32) * 32; // Ensure dimensions of the image are multiples of 32, as required by YOLO11 (in this case width is already multiple of 32)
             
             if(enable_letterbox_padding == true){
                 xPaddedImgCorner = 0;
@@ -223,8 +224,8 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     // The first and the third value become 0 when exported into ONNX format with dynamic=True, indicating that in the dynamic model these parameters can change on runtime.
     // Dynamic input/output shapes are not supported by OpenCV, but they are supported by ONNX Runtime.
     // In this case, OnnxRuntime is adopted instead of OpenCV more because of the superior inference efficency rather than the support of dynamic models.
-    // See: https://github.com/orgs/ultralytics/discussions/17254
     // You can also see the shape of the ouput layer by importing the .onnx file in https://netron.app/
+    // See also: https://github.com/orgs/ultralytics/discussions/17254
     */
 
     /* Getting dynamic output tensor info (data, shape, count) */
@@ -233,13 +234,13 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     auto tensorCount = tensorInfo.GetElementCount(); UNUSED(tensorCount);
     auto tensorShape = tensorInfo.GetShape();
     float* outputData = outputTensor.GetTensorMutableData<float>(); // the output values are flattened into a 1D array
-    // YOLO11: outputData[0..4...] = (x, y, width, height, confidence, classProb1, classProb2, ..., classProb80)
+    // YOLO11: outputData[0..4...] = (x, y, width, height, confidence, classConfidence1, classConfidence2, ...)
     
     int batchSize = static_cast<int>(tensorShape[0]); UNUSED(batchSize);
     int numChannels = static_cast<int>(tensorShape[1]); 
-    int numDetections = static_cast<int>(tensorShape[2]);  // This will vary based on input size and padding area
+    int numDetections = static_cast<int>(tensorShape[2]);  // The number of detections will vary based on input size and padding area
     
-    // NOTE: The output tensor is a matrix like this, if the batch size =1:
+    // NOTE: The output tensor is a matrix like this, if the batch size =1: (neglecting the first four parameters used for the bounding box)
     //          class1_detection1          class1_detection2          ...         class1_detectionN
     //              ....                                                                 ....
     //          class57_detection1                                                class57_detectionN
@@ -258,11 +259,11 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     //          class1_detection1          class1_detection2          ...         class1_detectionN         TRANSPOSE         detection1_class1          detection1_class2          ...         detection1_class57
     //              ....                                                                 ....                  --->               ....                                                                  ....
     //          class57_detection1                                                class57_detectionN                          detectionN_class1                                                 detectionN_class57
-    // This is why a Mat is constructed from the output data and its transposition t() is taken
+    // This is why a Mat is constructed from the pointer outputData and its transposition t() is taken
     Mat outputDataMat= Mat(numChannels, numDetections, CV_32F, outputData).t(); // -> now the data is in the order we needed! [Det1Class1 Det1Class2 ... Det1Class57 Det2Class1 ...]
     // -> This Mat constructor with the fourth paramter is defined as:
     // Mat(int rows, int cols, int type, void* data, size_t step=AUTO_STEP);
-    // The fourth parameter is just a pointer to the data! It doesn't need to copy the values!
+    // The fourth parameter is just a pointer to the data, it doesn't need to copy the values!
     // So this constructor just wraps pointer outputData in a matrix header, resulting a lot more efficient.
 
     for(int i = 0; i < numDetections; i++){
@@ -297,9 +298,9 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
             Rect box = Rect(xPosScaled, yPosScaled, bWScaled, bHScaled);
 
             /* Clamping bounding box to image boundaries */
-            box.x = max(0, box.x);
-            box.y = max(0, box.y);
-            box.width = min(box.width, img.cols - box.x);
+            box.x      = max(0, box.x);
+            box.y      = max(0, box.y);
+            box.width  = min(box.width, img.cols - box.x);
             box.height = min(box.height, img.rows - box.y);
 
 
@@ -307,11 +308,10 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
         }
     }
 
-    /* Non-Maxima Suppression */
+    /* Non-Maxima Suppression and construction of the final array of detections */
     vector<int> resultNMS;
     cv::dnn::NMSBoxes(boundingBoxes, detectedClassConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
 
-    /* Constructing the final array of detections after NMS */
     for(auto finalBoxIndex : resultNMS){
         Detection finalDetection;
         finalDetection.classId         = classIds[finalBoxIndex];
@@ -333,6 +333,7 @@ vector<string> YOLO_model::getDataClasses(string labelsFilename){
     return dataClasses;
 }
 
+/*Drawing bounding boxes for the detected objects. The bounding box is scaled depending on the input image size, using values found empirically.*/
 void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
     Mat resultImg = img.clone();
     for (auto detection : detections)
@@ -342,7 +343,7 @@ void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
         string label = detection.className + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
         putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, Scalar(0, 255, 0), 1.5 * thickness);
     }
-    std::string windowTitle = modelName + " - " + std::to_string(detections.size()) + " detections";
+    std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
     namedWindow(windowTitle, WINDOW_NORMAL);
     imshow(windowTitle, resultImg);
     waitKey(0);
@@ -351,4 +352,8 @@ void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
 
 void YOLO_model::setModelName(string modelName){
     this->modelName = modelName;
+}
+
+string YOLO_model::getModelName(){
+    return modelName;
 }

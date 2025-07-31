@@ -4,5 +4,4 @@ CMakeFiles/
 .cache/
 output/*
 data/test/*
-scripts/*
 build/*
