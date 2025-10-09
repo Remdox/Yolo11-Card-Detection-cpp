@@ -62,14 +62,14 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
     }
 }
 
-std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataClasses, bool enable_letterbox_padding){
-    /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
+/* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
              such that every step is perfectly clear to everyone reading this code. */
-
-    // Giving the original image size is possible in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
-    // The input needs to be resized for the YOLO model anyway to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO
+std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataClasses, bool enable_letterbox_padding){
     int inputHeight = img.rows;
     int inputWidth  = img.cols;
+
+    /* It's possible to give an image as input without resizing in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
+       The input needs to be resized anyway for the YOLO model to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO */
 
     /* YOLO: PRE-PROCESSING required for the image
         the YOLO model requires the image to be:
@@ -98,8 +98,8 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     Mat resizedImg;
     float resizedWidth    = -1;
     float resizedHeight   = -1;
-    int xPaddedImgCorner  = -100; // -> It represents the upper left corner of the centered image after letterbox padding, will be useful later to center the image
-    int yPaddedImgCorner  = -100;
+    int xPaddedImgCorner  = 0; // It represents the upper left corner of the centered image after letterbox padding, will be useful later to center the image
+    int yPaddedImgCorner  = 0;
 
     float imgAspectRatio    = static_cast<float>(inputWidth) / inputHeight;
     if(inputWidth == inputHeight){
@@ -115,20 +115,14 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
             resizedHeight = YOLO_TARGET_INPUT_SIZE / imgAspectRatio; // imgAspectRatio > 1 -> have to divide so that the height follows the width increase/decrease
             resizedHeight = (static_cast<int>(resizedHeight) / 32) * 32; // Ensure dimensions of the image are multiples of 32, as required by YOLO11 (in this case width is already multiple of 32)
             
-            if(enable_letterbox_padding == true){
-                xPaddedImgCorner = 0;
-                yPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedHeight/2);
-            }
+            if(enable_letterbox_padding == true) yPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedHeight/2);
         }
         else{
             resizedHeight = YOLO_TARGET_INPUT_SIZE;
             resizedWidth  = YOLO_TARGET_INPUT_SIZE * imgAspectRatio; // imgAspectRatio < 1 -> have to multiply to make the height follow the width value
             resizedWidth  = (static_cast<int>(resizedWidth) / 32) * 32;
 
-            if(enable_letterbox_padding == true){
-                yPaddedImgCorner = 0;
-                xPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedWidth/2);
-            }
+            if(enable_letterbox_padding == true) xPaddedImgCorner = static_cast<int>((YOLO_TARGET_INPUT_SIZE/2) - resizedWidth/2);
         }
 
         Mat tempImg;
@@ -153,11 +147,12 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     It's a multi-dimensional array of heterogeneous data types (float, int ...) which is optimized for computations.
     Tensors are useful because they are a convenient data structure for parallelizing GPU computations during DNN inference.*/
     
-    // INPUT TENSOR
-    // In OnnxRuntime the tensor is defined by its data (an array) and its shape (dimensions of the multi-dimensional array)
-    // Note: ONNX has the convention to have the nput tensor shape following the NCHW order, where N = batch size, C = nºchannels, H = height, W = width of the image.
-    // For convention height comes before width because data in memory is accessed along the row: data[y][x]
-    // You can check the shape of input tensor of your model by inspecting the .onnx file with https://netron.app/
+    /* INPUT TENSOR
+    * In OnnxRuntime the tensor is defined by its data (an array) and its shape (dimensions of the multi-dimensional array)
+    * Note: ONNX has the convention to have the nput tensor shape following the NCHW order, where N = batch size, C = nºchannels, H = height, W = width of the image.
+    * For convention height comes before width because data in memory is accessed along the row: data[y][x]
+    * You can check the shape of input tensor of your model by inspecting the .onnx file with https://netron.app/
+    */
     
     /* Preparing the parameters for the dynamic INPUT TENSOR */
     vector<int64_t> inputShape = {1, 3, static_cast<int>(resizedHeight), static_cast<int>(resizedWidth)}; // 4D tensor
@@ -342,6 +337,7 @@ void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
         rectangle(resultImg, detection.boundingBox, Scalar(0, 255, 0), 2 * thickness);
         string label = detection.className + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
         putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, Scalar(0, 255, 0), 1.5 * thickness);
+        // TODO draw the text on a side of the box which is not outside the image
     }
     std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
     namedWindow(windowTitle, WINDOW_NORMAL);

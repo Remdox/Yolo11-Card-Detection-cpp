@@ -6,7 +6,7 @@ Table of Contents
 
    * [Introduction](#introduction)
    * [Instructions](#Instructions)
-   * [Datasets](#what-is-anomaly-detection)
+   * [Datasets](#Datasets)
       * [Training](#Training)
       * [Validation](#Validation)
       * [Test](#Test)
@@ -15,22 +15,22 @@ Table of Contents
       * [Hi-Lo classification and Card Counting](#Hi-Lo-classification-and-Card-Counting)
       * [Visual Overlay](#Visual-Overlay)
       * [Occlusions management](#Occlusions-management)
-      * [Metrics](#Metrics)
-   * [Results and Discussion](results-and-discussion)
+   * [Output](output)
 
 # Introduction
 [Read the full proposal](./Cv_final_proposal.pdf).
    
 # Instructions
 ## Requirements
-* CMake version:
-* OpenCV version:
+* CMake version: 4.0.0+
+* OpenCV version: 4+
 * ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. If there are problems on using this library with CMake on Linux, you can manually install it:
 
 **On LINUX**
+
 Option 1 - Automatic (system-wide) installation using the bash script:
 * Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh)
-* See section: [Runnning the project](#Running-the-project)
+* See section: [Running the project](#Running-the-project)
 
 Option 2 - Manual (global) installation:
 * Extract onnxruntime-linux-x64-1.21.0.tgz
@@ -47,12 +47,14 @@ To run the project:
 1. cd into build/
 2. cmake ..
 3. make -> compiles (doesn't compile if there are compiler errors)
-4. ./finalProject <image_to_test> (WIP, to define)
+4. to start, test on an image with `./finalProject <image_to_test>` or see the help page with `./finalProject -h`
 
    
 # Datasets
-Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness.
-The program runs using YOLO, which means that the datasets have to follow YOLO's folder structure. See: [YOLO's Dataset Structure for YOLO Classification Tasks](https://docs.ultralytics.com/datasets/classify/).
+Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness. No data augmentation has been used for the datasets, keeping a low memory overhead.
+
+## Training
+The program runs using YOLO, which means that the training dataset has to follow YOLO's folder structure. See: [YOLO's Dataset Structure for YOLO Classification Tasks](https://docs.ultralytics.com/datasets/classify/).
 In this specific case, the dataset structure is defined as:
 ```
 <DATASET_PATH>/
@@ -89,21 +91,18 @@ The labels are .txt files described in YOLO format. See: [Ultralytics YOLO forma
 ```
 Where each row is a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding boxes can be found for the same card, which makes it easier to find in case of partial occlusions.
 
-No data augmentation has been used for the datasets, as to reduce memory overhead.
-
-## Training
 The datasets used are:
    * **The Complete Playing Card Dataset** by **Jay Pradip Shah** on Kaggle. See: https://www.kaggle.com/datasets/jaypradipshah/the-complete-playing-card-dataset.
    * **Playing Cards Object Detection Dataset** by **Andy8744** on Kaggle. See: https://www.kaggle.com/datasets/andy8744/playing-cards-object-detection-dataset.
 
-The two have been merged into one single dataset. The labels have been [adjusted](./changeLabelsToMatchNewYaml.py) to the data.yaml file used for **The Complete Playing Card Dataset**.
+The two have been merged into one single dataset. The labels have been [adjusted](./scripts/changeLabelsToMatchNewYaml.py) to the data.yaml file used for **The Complete Playing Card Dataset**.
 
 ## Validation
 The **Playing Cards Object Detection Dataset** provides the images used for validation.
 
 ## Test
-The **Playing Cards Object Detection Dataset** provides some images useful for testing, but the goal is to apply the model on videos from Youtube.
-In order to do this, [Label studio](https://github.com/HumanSignal/labelImg) or [Roboflow](https://roboflow.com/) can be used on Youtube clips of poker games.
+The model is applied on videos from Youtube.
+In order to do this, some tools like [CVAT](https://www.cvat.ai/), [Label studio](https://github.com/HumanSignal/labelImg), [Roboflow](https://roboflow.com/) can be used for annotations on Youtube clips of poker games.
 
 
 # Code

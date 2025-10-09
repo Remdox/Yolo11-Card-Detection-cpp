@@ -23,23 +23,74 @@ using namespace Shared;
 
 int main(int argc, char** argv){
     // TODO: batch processing
-    if(argc < 2){
-        cerr << "Usage: <test image path>\n";
+    string data_path;
+    string labels_path;
+    string allowedImgType[] = {".png", ".jpg", ".jpeg"};
+    string allowedVidType[] = {".mp4"};
+    YOLO_model model;
+    model.setModelName("YOLO11s");
+    if(argc < 2 || string(argv[1]) == "-h" || string(argv[1]) == "--help"){
+        cerr << "Usage: " << argv[0] << " <image_path> <labels_path>\n";
+        cerr << "Or: " << argv[0] << " <video_path> <labels_path>\n";
+        return -1;
+    }
+    else if(argc < 3){
+        cout << "No path for the labels specified, defaulting to ../data/model/labels.txt ...\n";
+        labels_path = "../data/model/labels.txt";
+    }
+    else labels_path = argv[2];
+    data_path = argv[1];
+    /* TODO
+    THIS SHOULD BE ADJUSTED TO BECOME A PROPER FUNCTION FOR PARSING THE COMMAND AND/OR FILE GIVEN
+    AS INPUT AND ROUTING THE CORRESPONDING FUNCTION TO ANALYZE IMAGE, VIDEO, WEBCAM */
+    enum class fileCategories {IMAGE, VIDEO, UNKNOWN};
+    fileCategories fileType = fileCategories::UNKNOWN;
+    if(labels_path.rfind(".txt") == string::npos){
+        cerr << "The label file provided has an invalid file type. Please provide a .txt file.\n";
         return -1;
     }
 
-    string labelsFilename = "../data/model/labels.txt";
-    YOLO_model model;
-    model.setModelName("YOLO11s");
+    /* check if user chooses CAMERA (or default to this if image/video not provided)
+    if(CAMERA){
+        fileType = fileCategories::CAMERA;
+        //runCameraPipeline()
+    }
+    else{
+        [[check file provided]] */
 
-    string image_path = argv[1];
-    Mat frame = imread(image_path, cv::IMREAD_COLOR);
+    /* check if file is image */
+    if(fileType == fileCategories::UNKNOWN){
+        for(auto type : allowedImgType){
+            if(data_path.rfind(type) != string::npos){
+                fileType = fileCategories::IMAGE;
+                //runImagePipeline()
+                Mat frame = imread(data_path, cv::IMREAD_COLOR);
 
-    vector<string> dataClasses = model.getDataClasses(labelsFilename);
-    model.detectObjects(frame, dataClasses, true);
-    model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+                vector<string> dataClasses = model.getDataClasses(labels_path);
+                model.detectObjects(frame, dataClasses, true);
+                model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+                break;
+            }
+        }
+    }
+
+    /* check if file is video */
+    if(fileType == fileCategories::UNKNOWN){
+        for(auto type: allowedVidType){
+            if(data_path.rfind(type) != string::npos){
+                fileType = fileCategories::VIDEO;
+                //runVideoPipeline()
+                break;
+            }
+        }
+    }
+    
+    /* invalid file */
+    if(fileType == fileCategories::UNKNOWN){
+            cerr << "The image or video provided has an invalid file type. Please retry with a different one.\n";
+            return -1;
+        }
+
     // destroyAllWindows();
-
-
-    return(0);
+    return 0;
 }
