@@ -11,4 +11,6 @@
 
 #include "marco_annunziata.hpp"
 
+int frameCapture(std::string data_path, std::string labels_path);
+
 #endif

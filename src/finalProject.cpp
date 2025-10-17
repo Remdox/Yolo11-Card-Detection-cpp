@@ -80,6 +80,7 @@ int main(int argc, char** argv){
             if(data_path.rfind(type) != string::npos){
                 fileType = fileCategories::VIDEO;
                 //runVideoPipeline()
+                int frames = frameCapture(data_path, labels_path);
                 break;
             }
         }
