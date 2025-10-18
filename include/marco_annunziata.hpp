@@ -21,21 +21,23 @@ struct Detection{
 
 class YOLO_model{
     private:
-        Ort::Env env;
-        static void logger(void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message);
-        Ort::Session session;
-        Ort::SessionOptions sessionOptions;
+        Ort::Env                         env;
+        static void                      logger(void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message);
+        Ort::Session                     session;
+        Ort::SessionOptions              sessionOptions;
         Ort::AllocatorWithDefaultOptions allocator;
-        const int YOLO_TARGET_INPUT_SIZE = 640; // MUST be multiple of 32. See YOLO_model::detectObjects implementation.
-        std::vector<Detection> detections;
-        std::string modelName = "Yolo";
+        const int                        YOLO_TARGET_INPUT_SIZE = 640; // MUST be multiple of 32. See YOLO_model::detectObjects implementation.
+        std::vector<Detection>           detections;
+        std::string                      modelName = "Yolo";
     public:
         YOLO_model();
-        std::vector<Detection> detectObjects(cv::Mat &img, std::vector<std::string> dataClasses, bool enable_letterbox_padding=true);
+        std::vector<Detection>   detectObjects(cv::Mat &img, std::vector<std::string> dataClasses, bool enable_letterbox_padding=true);
         std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
-        void drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg);
-        void setModelName(std::string modelName);
-        std::string getModelName();
+        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &img, std::vector<Detection> &detections);
+        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg);
+        void                     setModelName(std::string modelName);
+        std::string              getModelName();
+        std::vector<Detection>   getDetections();
 };
 
 #endif

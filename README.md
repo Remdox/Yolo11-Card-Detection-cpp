@@ -40,6 +40,7 @@ Option 2 - Manual (global) installation:
 * update the libraries cache running ldconfig
 
 **On WINDOWS**
+Use Linux (...well, you could also check out the official documentation for installing ONNXRuntime on their website).
 
 ## Running the project
 Make sure to put the videos to use for testing in the data/test/ directory and the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line.

@@ -24,21 +24,16 @@ using namespace Shared;
 int main(int argc, char** argv){
     // TODO: batch processing
     string data_path;
-    string labels_path;
+    string labels_path = "../data/model/labels.txt";;
     string allowedImgType[] = {".png", ".jpg", ".jpeg"};
     string allowedVidType[] = {".mp4"};
     YOLO_model model;
     model.setModelName("YOLO11s");
     if(argc < 2 || string(argv[1]) == "-h" || string(argv[1]) == "--help"){
-        cerr << "Usage: " << argv[0] << " <image_path> <labels_path>\n";
-        cerr << "Or: " << argv[0] << " <video_path> <labels_path>\n";
+        cerr << "Usage: " << argv[0] << " <image_path>\n";
+        cerr << "Or: " << argv[0] << " <video_path>\n";
         return -1;
     }
-    else if(argc < 3){
-        cout << "No path for the labels specified, defaulting to ../data/model/labels.txt ...\n";
-        labels_path = "../data/model/labels.txt";
-    }
-    else labels_path = argv[2];
     data_path = argv[1];
     /* TODO
     THIS SHOULD BE ADJUSTED TO BECOME A PROPER FUNCTION FOR PARSING THE COMMAND AND/OR FILE GIVEN
@@ -68,7 +63,11 @@ int main(int argc, char** argv){
 
                 vector<string> dataClasses = model.getDataClasses(labels_path);
                 model.detectObjects(frame, dataClasses, true);
-                model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+                Mat resultImg = model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+                std::string windowTitle = model.getModelName() + " - " + std::to_string(model.getDetections().size()) + " detections";
+                namedWindow(windowTitle, WINDOW_NORMAL);
+                imshow(windowTitle, resultImg);
+                waitKey(0);
                 break;
             }
         }

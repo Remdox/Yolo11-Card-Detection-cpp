@@ -62,9 +62,11 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
     }
 }
 
-/* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
-             such that every step is perfectly clear to everyone reading this code. */
+/* Takes the image and the labels as input, returns the detections found in that image */
 std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataClasses, bool enable_letterbox_padding){
+    /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
+             such that every step is perfectly clear to everyone reading this code. */
+
     int inputHeight = img.rows;
     int inputWidth  = img.cols;
 
@@ -329,7 +331,7 @@ vector<string> YOLO_model::getDataClasses(string labelsFilename){
 }
 
 /*Drawing bounding boxes for the detected objects. The bounding box is scaled depending on the input image size, using values found empirically.*/
-void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
+Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std::vector<Detection> &detections){
     Mat resultImg = img.clone();
     for (auto detection : detections)
     {
@@ -339,10 +341,15 @@ void YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
         putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, Scalar(0, 255, 0), 1.5 * thickness);
         // TODO draw the text on a side of the box which is not outside the image
     }
-    std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
-    namedWindow(windowTitle, WINDOW_NORMAL);
-    imshow(windowTitle, resultImg);
-    waitKey(0);
+    // std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
+    // namedWindow(windowTitle, WINDOW_NORMAL);
+    // imshow(windowTitle, resultImg);
+    // waitKey(0);
+    return resultImg;
+}
+
+Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
+    return drawBoundingBoxes(inputWidth, inputHeight, img, detections);
 }
 
 
@@ -352,4 +359,8 @@ void YOLO_model::setModelName(string modelName){
 
 string YOLO_model::getModelName(){
     return modelName;
+}
+
+std::vector<Detection> YOLO_model::getDetections(){
+    return detections;
 }
