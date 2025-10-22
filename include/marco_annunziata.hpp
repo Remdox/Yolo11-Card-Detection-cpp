@@ -33,8 +33,8 @@ class YOLO_model{
         YOLO_model();
         std::vector<Detection>   detectObjects(cv::Mat &img, std::vector<std::string> dataClasses, bool enable_letterbox_padding=true);
         std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
-        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &img, std::vector<Detection> &detections);
-        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg);
+        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &img, std::vector<Detection> &detections, cv::Scalar color);
+        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg, cv::Scalar color);
         void                     setModelName(std::string modelName);
         std::string              getModelName();
         std::vector<Detection>   getDetections();

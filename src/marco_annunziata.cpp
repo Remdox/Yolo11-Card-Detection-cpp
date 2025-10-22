@@ -331,14 +331,14 @@ vector<string> YOLO_model::getDataClasses(string labelsFilename){
 }
 
 /*Drawing bounding boxes for the detected objects. The bounding box is scaled depending on the input image size, using values found empirically.*/
-Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std::vector<Detection> &detections){
+Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std::vector<Detection> &detections, Scalar color){
     Mat resultImg = img.clone();
     for (auto detection : detections)
     {
         int thickness = max(1, int(max(inputHeight, inputWidth) / 640));
-        rectangle(resultImg, detection.boundingBox, Scalar(0, 255, 0), 2 * thickness);
+        rectangle(resultImg, detection.boundingBox, color, 2 * thickness);
         string label = detection.className + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
-        putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, Scalar(0, 255, 0), 1.5 * thickness);
+        putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, color, 1.5 * thickness);
         // TODO draw the text on a side of the box which is not outside the image
     }
     // std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
@@ -348,8 +348,8 @@ Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std
     return resultImg;
 }
 
-Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img){
-    return drawBoundingBoxes(inputWidth, inputHeight, img, detections);
+Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, Scalar color){
+    return drawBoundingBoxes(inputWidth, inputHeight, img, detections, color);
 }
 
 

@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <opencv2/videoio.hpp>
 #include <string>
+#include <vector>
 
 #include "./../include/sveva_turola.hpp"
 #include "./../include/marco_annunziata.hpp"
@@ -65,17 +66,51 @@ int frameCapture(string data_path, string labels_path) {
             // cout << "Saved: " << filename << endl;
 
             auto detections = model.detectObjects(frame, dataClasses, true);
-            Mat outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, frame);
-
+            Mat outputFrame = cardValues(detections, model, frame);
             out.write(outputFrame);
+            imshow("Output Video", outputFrame);
+            waitKey(1);
         }
         frameCount++;
     }
 
     cout << "\nExtraction completed! Frames saved: " << savedCount << endl;
     cout << "Video saved in output directory" << endl;
+
     cap.release();
     out.release();
     destroyAllWindows();
     return 0;
+}
+
+Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
+    vector<Detection> green, blue, red;
+
+    for(auto detection : detections){
+        char cardNumber = detection.className[0];
+
+        if(cardNumber >= '2' && cardNumber <= '6'){
+            green.push_back(detection);
+        }
+        else if(cardNumber >= '7' && cardNumber <= '9'){
+            blue.push_back(detection);
+        }
+        else { // tutto il resto, inclusi 10,J,Q,K,A,JOKER
+            red.push_back(detection);
+        }
+    }
+
+    Mat outputFrame = frame.clone();
+
+    if(!green.empty()){
+        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, green, Scalar(0, 255, 0));
+    }
+    if(!blue.empty()){
+        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, blue, Scalar(255, 0, 0));
+    }
+    if(!red.empty()){
+        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, red, Scalar(0, 0, 255));
+    }
+
+    return outputFrame;
 }

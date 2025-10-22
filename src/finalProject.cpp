@@ -63,7 +63,7 @@ int main(int argc, char** argv){
 
                 vector<string> dataClasses = model.getDataClasses(labels_path);
                 model.detectObjects(frame, dataClasses, true);
-                Mat resultImg = model.drawBoundingBoxes(frame.rows, frame.cols, frame);
+                Mat resultImg = model.drawBoundingBoxes(frame.rows, frame.cols, frame, Scalar(255, 0, 0));
                 std::string windowTitle = model.getModelName() + " - " + std::to_string(model.getDetections().size()) + " detections";
                 namedWindow(windowTitle, WINDOW_NORMAL);
                 imshow(windowTitle, resultImg);
