@@ -23,8 +23,13 @@ int frameCapture(string data_path, string labels_path) {
     if (!fs::exists(outputDir)) {
         fs::create_directory(outputDir);
     }
+    VideoCapture cap;
+    if(data_path == "0"){
+        cap.open(0);
+    } else {
+        cap.open(data_path);
+    }
 
-    VideoCapture cap(data_path);
     if (!cap.isOpened()) {
         cerr << "Error opening video" << endl;
         return -1;

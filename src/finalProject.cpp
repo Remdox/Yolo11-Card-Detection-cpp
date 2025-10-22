@@ -22,19 +22,32 @@ using namespace cv;
 using namespace Shared;
 
 int main(int argc, char** argv){
-    // TODO: batch processing
+    string choice = "X";
     string data_path;
     string labels_path = "../data/model/labels.txt";;
     string allowedImgType[] = {".png", ".jpg", ".jpeg"};
     string allowedVidType[] = {".mp4"};
     YOLO_model model;
     model.setModelName("YOLO11s");
-    if(argc < 2 || string(argv[1]) == "-h" || string(argv[1]) == "--help"){
-        cerr << "Usage: " << argv[0] << " <image_path>\n";
-        cerr << "Or: " << argv[0] << " <video_path>\n";
-        return -1;
+
+    while(true){
+        cout << "Write C to use camera or F to use a file: ";
+        cin >> choice;
+        if(choice == "C"){
+            cout << "Selected camera";
+            int result = frameCapture("0", labels_path);
+        } else if(choice == "F"){
+            string data_path;
+            cout << "Insert file path: ";
+            cin >> data_path;
+            int frames = frameCapture(data_path, labels_path);
+            cin >> data_path;
+        } else {
+            cout << "Usage: write C or F!\n";
+        }
     }
-    data_path = argv[1];
+
+    // TODO: batch processing
     /* TODO
     THIS SHOULD BE ADJUSTED TO BECOME A PROPER FUNCTION FOR PARSING THE COMMAND AND/OR FILE GIVEN
     AS INPUT AND ROUTING THE CORRESPONDING FUNCTION TO ANALYZE IMAGE, VIDEO, WEBCAM */
