@@ -16,39 +16,69 @@ using namespace std;
 using namespace cv;
 namespace fs = std::filesystem;
 
-int frameCapture(string data_path, string labels_path) {
-    string outputDir = "../output/frames/";     //output directory
-    int frameInterval = 10;
-
-    if (!fs::exists(outputDir)) {
-        fs::create_directory(outputDir);
-    }
-    VideoCapture cap;
-    if(data_path == "0"){
-        cap.open(0);
-    } else {
-        cap.open(data_path);
-    }
-
-    if (!cap.isOpened()) {
-        cerr << "Error opening video" << endl;
-        return -1;
-    }
-
+int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
     YOLO_model model;
     model.setModelName("YOLO11s");
-    Mat frame;
     vector<string> dataClasses = model.getDataClasses(labels_path);
+    int frameInterval = 10;
     int frameCount = 0;
-    int savedCount = 0;
-
     int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
-    VideoWriter out;
 
     cap.read(frame);
     if (frame.empty()){
         return -1;
     }
+
+    int frame_width = static_cast<int>(cap.get(CAP_PROP_FRAME_WIDTH));
+    int frame_height = static_cast<int>(cap.get(CAP_PROP_FRAME_HEIGHT));
+    out.open("../output/detections.mp4", codec, frameInterval, Size(frame_width, frame_height), true);
+    if(!out.isOpened()){
+        cerr << "Could not open the output video file for write\n";
+        return -1;
+    }
+
+    cout << "Loading camera video..." << endl;
+
+    while (true) {
+        cap.read(frame);
+        if (frame.empty()){
+            break;
+        }
+
+        if (frameCount % frameInterval == 0) {
+            savedCount++;
+
+            auto detections = model.detectObjects(frame, dataClasses, true);
+            Mat outputFrame = cardValues(detections, model, frame);
+            out.write(outputFrame);
+            imshow("Output Video", outputFrame);
+            waitKey(1);
+        }
+        frameCount++;
+
+        int key = waitKey(1) & 0xFF;
+        if (key == 'q') {
+            cout << "Closed camera!\n";
+            break;
+        }
+    }
+
+    return savedCount;
+}
+
+int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
+    YOLO_model model;
+    model.setModelName("YOLO11s");
+    vector<string> dataClasses = model.getDataClasses(labels_path);
+    int frameInterval = 10;
+    int frameCount = 0;
+    int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
+
+    cap.read(frame);
+    if (frame.empty()){
+        return -1;
+    }
+
     int frame_width = static_cast<int>(cap.get(CAP_PROP_FRAME_WIDTH));
     int frame_height = static_cast<int>(cap.get(CAP_PROP_FRAME_HEIGHT));
     out.open("../output/detections.mp4", codec, frameInterval, Size(frame_width, frame_height), true);
@@ -58,6 +88,7 @@ int frameCapture(string data_path, string labels_path) {
     }
 
     cout << "Loading video..." << endl;
+
     while (true) {
         cap.read(frame);
         if (frame.empty()){
@@ -65,10 +96,7 @@ int frameCapture(string data_path, string labels_path) {
         }
 
         if (frameCount % frameInterval == 0) {
-            // string filename = outputDir + "frame_" + to_string(frameCount) + ".jpg";
-            // imwrite(filename, frame);
             savedCount++;
-            // cout << "Saved: " << filename << endl;
 
             auto detections = model.detectObjects(frame, dataClasses, true);
             Mat outputFrame = cardValues(detections, model, frame);
@@ -77,6 +105,35 @@ int frameCapture(string data_path, string labels_path) {
             waitKey(1);
         }
         frameCount++;
+    }
+    return savedCount;
+}
+
+int frameCapture(string data_path, string labels_path) {
+    string outputDir = "../output/frames/";     //output directory
+    Mat frame;
+    int savedCount = 0;
+    VideoCapture cap;
+    VideoWriter out;
+
+    if (!fs::exists(outputDir)) { // creation of output directory
+        fs::create_directory(outputDir);
+    }
+
+    if(data_path == "0"){
+        cap.open(0);
+        if (!cap.isOpened()) {
+            cerr << "Error opening camera!" << endl;
+            return -1;
+        }
+        savedCount = cameraCapture(cap, out, frame, savedCount, labels_path);
+    } else {
+        cap.open(data_path);
+        if (!cap.isOpened()) {
+            cerr << "Error opening video!" << endl;
+            return -1;
+        }
+        savedCount = videoCapture(cap, out, frame, savedCount, labels_path);
     }
 
     cout << "\nExtraction completed! Frames saved: " << savedCount << endl;
@@ -100,7 +157,7 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
         else if(cardNumber >= '7' && cardNumber <= '9'){
             blue.push_back(detection);
         }
-        else { // tutto il resto, inclusi 10,J,Q,K,A,JOKER
+        else {
             red.push_back(detection);
         }
     }

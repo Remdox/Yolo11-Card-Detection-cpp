@@ -34,8 +34,9 @@ int main(int argc, char** argv){
         cout << "Write C to use camera or F to use a file: ";
         cin >> choice;
         if(choice == "C"){
-            cout << "Selected camera";
+            cout << "Selected camera (press q to close the camera)";
             int result = frameCapture("0", labels_path);
+            break;
         } else if(choice == "F"){
             string data_path;
             cout << "Insert file path: ";
@@ -44,6 +45,7 @@ int main(int argc, char** argv){
             cin >> data_path;
         } else {
             cout << "Usage: write C or F!\n";
+            break;
         }
     }
 
