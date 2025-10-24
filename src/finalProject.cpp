@@ -43,9 +43,9 @@ int main(int argc, char** argv){
             cin >> data_path;
             int frames = frameCapture(data_path, labels_path);
             cin >> data_path;
+            break;
         } else {
             cout << "Usage: write C or F!\n";
-            break;
         }
     }
 
