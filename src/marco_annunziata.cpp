@@ -70,6 +70,9 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     int inputHeight = img.rows;
     int inputWidth  = img.cols;
 
+    // removes previous detections, in case of multiple subsequent detections
+    detections.clear();
+
     /* It's possible to give an image as input without resizing in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
        The input needs to be resized anyway for the YOLO model to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO */
 

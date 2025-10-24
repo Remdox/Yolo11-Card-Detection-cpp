@@ -47,7 +47,7 @@ Make sure to put the videos to use for testing in the data/test/ directory and t
 To run the project:
 1. cd into build/
 2. cmake ..
-3. make -> compiles (doesn't compile if there are compiler errors)
+3. make
 4. to start, test on an image with `./finalProject <image_to_test>` or see the help page with `./finalProject -h`
 
    
