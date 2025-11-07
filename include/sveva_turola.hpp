@@ -15,9 +15,9 @@
 using namespace std;
 using namespace cv;
 
-int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path, string inputFps);
-int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path, string inputFps);
-int frameCapture(string data_path, string labels_path, string inputFps);
+int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
+int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
+int frameCapture(string data_path, string labels_path);
 Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame);
 
 #endif

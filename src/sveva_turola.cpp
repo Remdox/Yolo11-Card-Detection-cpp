@@ -16,24 +16,14 @@ using namespace std;
 using namespace cv;
 namespace fs = std::filesystem;
 
-int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path, string inputFps){
+int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
     YOLO_model model;
     model.setModelName("YOLO11s");
     vector<string> dataClasses = model.getDataClasses(labels_path);
     int frameCount = 0;
     int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
-    int fps;
-
-    if(inputFps == "default"){
-        fps = 10;
-    } else {
-        try {
-            fps = stod(inputFps);
-        } catch (const exception& e) {
-            cerr << "Error: assigned to fps a not valid value\n";
-            fps = 10;
-        }
-    }
+    int fps = cap.get(CAP_PROP_FPS);
+    vector<Detection> detections;
 
     cap.read(frame);
     if (frame.empty()){
@@ -56,20 +46,20 @@ int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
             break;
         }
 
-        if (frameCount % (fps/2) == 0) { // TODO cambiare
-            savedCount++;
+        savedCount++;
+        int key = waitKey(1) & 0xFF;
 
-            auto detections = model.detectObjects(frame, dataClasses, true);
-            Mat outputFrame = cardValues(detections, model, frame);
-            out.write(outputFrame);
-            namedWindow("Output Video", WND_PROP_FULLSCREEN);
-            setWindowProperty("Output Video", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
-            imshow("Output Video", outputFrame);
-            waitKey(1);
+        if (frameCount % (fps/2) == 0) { // TODO cambiare
+            detections = model.detectObjects(frame, dataClasses, true);
         }
         frameCount++;
+        Mat outputFrame = cardValues(detections, model, frame);
+        out.write(outputFrame);
+        namedWindow("Output Video", WND_PROP_FULLSCREEN);
+        setWindowProperty("Output Video", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
+        imshow("Output Video", outputFrame);
+        waitKey(1);
 
-        int key = waitKey(1) & 0xFF;
         if (key == 'q') {
             cout << "Closed camera!\n";
             break;
@@ -79,24 +69,14 @@ int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     return savedCount;
 }
 
-int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path, string inputFps){
+int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
     YOLO_model model;
     model.setModelName("YOLO11s");
     vector<string> dataClasses = model.getDataClasses(labels_path);
     int frameCount = 0;
     int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
-    int fps;
-
-    if(inputFps == "default"){
-        fps = 10;
-    } else {
-        try {
-            fps = stod(inputFps);
-        } catch (const exception& e) {
-            cerr << "Error: assigned to fps a not valid value\n";
-            fps = 10;
-        }
-    }
+    int fps = cap.get(CAP_PROP_FPS);
+    vector<Detection> detections;
 
     cap.read(frame);
     if (frame.empty()){
@@ -119,23 +99,24 @@ int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, s
             break;
         }
 
-        if (frameCount % (fps/2) == 0) { //TODO cambiare
-            savedCount++;
+        savedCount++;
+        int key = waitKey(1) & 0xFF;
 
-            auto detections = model.detectObjects(frame, dataClasses, true);
-            Mat outputFrame = cardValues(detections, model, frame);
-            out.write(outputFrame);
-            namedWindow("Output Video", WND_PROP_FULLSCREEN);
-            setWindowProperty("Output Video", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
-            imshow("Output Video", outputFrame);
-            waitKey(1);
+        if (frameCount % (fps/2) == 0) { //TODO cambiare
+            detections = model.detectObjects(frame, dataClasses, true);
         }
         frameCount++;
+        Mat outputFrame = cardValues(detections, model, frame);
+        out.write(outputFrame);
+        namedWindow("Output Video", WND_PROP_FULLSCREEN);
+        setWindowProperty("Output Video", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
+        imshow("Output Video", outputFrame);
+        waitKey(1);
     }
     return savedCount;
 }
 
-int frameCapture(string data_path, string labels_path, string inputFps) {
+int frameCapture(string data_path, string labels_path) {
     string outputDir = "../output/frames/";     //output directory
     Mat frame;
     int savedCount = 0;
@@ -152,17 +133,17 @@ int frameCapture(string data_path, string labels_path, string inputFps) {
             cerr << "Error opening camera!" << endl;
             return -1;
         }
-        savedCount = cameraCapture(cap, out, frame, savedCount, labels_path, inputFps);
+        savedCount = cameraCapture(cap, out, frame, savedCount, labels_path);
     } else {
         cap.open(data_path);
         if (!cap.isOpened()) {
             cerr << "Error opening video!" << endl;
             return -1;
         }
-        savedCount = videoCapture(cap, out, frame, savedCount, labels_path, inputFps);
+        savedCount = videoCapture(cap, out, frame, savedCount, labels_path);
     }
 
-    cout << "\nExtraction completed! Frames saved: " << savedCount << endl;
+    cout << "\nExtraction completed! Frames used: " << savedCount << endl;
     cout << "Video saved in output directory" << endl;
 
     cap.release();

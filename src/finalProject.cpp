@@ -35,19 +35,13 @@ int main(int argc, char** argv){
         cin >> choice;
         if(choice == "C"){
             cout << "Selected camera (press q to close the camera)\n";
-            cout << "Insert number of fps for output video or write default: ";
-            string inputFps;
-            cin >> inputFps;
-            int result = frameCapture("0", labels_path, inputFps);
+            int result = frameCapture("0", labels_path);
             break;
         } else if(choice == "F"){
             string data_path;
             cout << "Insert file path: ";
             cin >> data_path;
-            cout << "Insert number of fps for output video or write default: ";
-            string inputFps;
-            cin >> inputFps;
-            int frames = frameCapture(data_path, labels_path, inputFps);
+            int frames = frameCapture(data_path, labels_path);
             break;
         } else {
             cout << "Usage: write C or F!\n";
@@ -99,7 +93,7 @@ int main(int argc, char** argv){
             if(data_path.rfind(type) != string::npos){
                 fileType = fileCategories::VIDEO;
                 //runVideoPipeline()
-                //int frames = frameCapture(data_path, labels_path);
+                int frames = frameCapture(data_path, labels_path);
                 break;
             }
         }
