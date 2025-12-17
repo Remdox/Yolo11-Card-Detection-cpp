@@ -30,23 +30,46 @@ int main(int argc, char** argv){
     YOLO_model model;
     model.setModelName("YOLO11s");
 
-    while(true){
-        cout << "Write C to use camera or F to use a file: ";
-        cin >> choice;
-        if(choice == "C"){
-            cout << "Selected camera (press q to close the camera)\n";
+    UserData userData = readInput();
+
+    switch (userData.choice)
+    {
+        case Choice::Camera:
+        {
             int result = frameCapture("0", labels_path);
-            break;
-        } else if(choice == "F"){
-            string data_path;
-            cout << "Insert file path: ";
-            cin >> data_path;
-            int frames = frameCapture(data_path, labels_path);
-            break;
-        } else {
-            cout << "Usage: write C or F!\n";
+        }
+        break;
+
+        case Choice::File:
+        {
+            int frames = frameCapture(userData.data_path, labels_path);
+        }
+        break;
+
+        case Choice::Invalid:
+        {
+            //TODO: Verifica se questa parte va bene, di norma in questo caso non può ricaderci l'utente
+            throw std::logic_error("Invalid operation: ...");
         }
     }
+
+    // while(true){
+    //     cout << "Write C to use camera or F to use a file: ";
+    //     cin >> choice;
+    //     if(choice == "C"){
+    //         cout << "Selected camera (press q to close the camera)\n";
+    //         int result = frameCapture("0", labels_path);
+    //         break;
+    //     } else if(choice == "F"){
+    //         string data_path;
+    //         cout << "Insert file path: ";
+    //         cin >> data_path;
+    //         int frames = frameCapture(data_path, labels_path);
+    //         break;
+    //     } else {
+    //         cout << "Usage: write C or F!\n";
+    //     }
+    // }
 
     // TODO: batch processing
     /* TODO

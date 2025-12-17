@@ -17,4 +17,44 @@ using namespace std;
 using namespace Shared;
 
 
-//test branch publishing !
+
+UserData readInput() {
+
+    string choiceStr;
+    UserData result(Choice::Invalid, "");
+
+    //NOTE: Let's keep asking if the input it's invalid
+    while (result.choice == Choice::Invalid)
+    {
+        //TODO: Improve the help page by adding commands
+        cout << "Write C to use camera or F to use a file: ";
+        cin >> choiceStr;
+        result.choice = parseChoice(choiceStr);
+
+        switch (result.choice)
+        {
+            case Choice::Camera:
+            {
+                cout << "Selected camera (press q to close the camera)\n";
+            }
+            break;
+
+            case Choice::File:
+            {
+                cout << "Insert file path: ";
+                //TODO: Implement the tab function right here
+                cin >> result.data_path;
+            }
+            break;
+
+            case Choice::Invalid:
+            {
+                cout << "Usage: write C or F!\n";
+            }
+        }
+
+
+    }
+
+    return result;
+}

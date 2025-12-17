@@ -4,6 +4,12 @@
 #include <string>
 #include <opencv2/highgui.hpp>
 
-namespace Shared{}
+namespace Shared{
+
+    //NOTE: Possible choices
+    enum class Choice {Camera, File, Invalid};
+
+    Choice parseChoice(std::string s);
+}
 
 #endif

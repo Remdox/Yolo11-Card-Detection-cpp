@@ -14,5 +14,16 @@ using namespace cv;
 using namespace std;
 using namespace Shared;
 
+//NOTE: Contains the user choices
+struct UserData {
+    Choice choice;
+    string data_path;
+
+    UserData(Choice _choice, string _data_path) 
+        : choice(_choice), data_path(_data_path) {} 
+};
+
+//NOTE: Public methods
+UserData readInput();
 
 #endif
