@@ -7,7 +7,7 @@
 namespace Shared{
 
     //NOTE: Possible choices
-    enum class Choice {Camera, File, Invalid};
+    enum class Choice {Camera, File, Invalid, Help};
 
     Choice parseChoice(std::string s);
 }

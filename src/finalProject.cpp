@@ -47,6 +47,7 @@ int main(int argc, char** argv){
         break;
 
         case Choice::Invalid:
+        case Choice::Help:
         {
             //TODO: Verifica se questa parte va bene, di norma in questo caso non può ricaderci l'utente
             throw std::logic_error("Invalid operation: ...");

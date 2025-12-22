@@ -15,6 +15,7 @@ namespace Shared{
         char c = (char)std::toupper((unsigned char)s[0]);
         if (c == 'C' || c == 'c') return Choice::Camera;
         if (c == 'F' || c == 'f') return Choice::File;
+        if (c == 'H' || c == 'h') return Choice::Help;
         return Choice::Invalid;
     }
 }
