@@ -5,3 +5,4 @@ CMakeFiles/
 output/*
 data/test/*
 build/*
+external/onnxruntime-linux-x64-gpu-1.21.0.tgz

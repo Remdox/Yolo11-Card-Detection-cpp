@@ -6,6 +6,7 @@
 #include <opencv2/highgui.hpp> 
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
+#include <future>
 
 // A couple of variables could be useful to keep so I use this in order to avoid g++ warnings
 #define UNUSED(x) (void)(x)
@@ -18,7 +19,24 @@ const float CLASS_CONFIDENCE_THRESHOLD = 0.5;
 const float NMS_THRESHOLD = 0.5;
 
 YOLO_model::YOLO_model(): env(ORT_LOGGING_LEVEL_VERBOSE, "YOLOModel", YOLO_model::logger, this), session(nullptr), sessionOptions(){
-    sessionOptions.SetIntraOpNumThreads(1);
+    if(usingGPU){
+        try{
+            OrtCUDAProviderOptions cudaOptions;
+            cudaOptions.device_id = 0;
+            cudaOptions.gpu_mem_limit = SIZE_MAX;
+            // arena_extend_strategy: how much space to allocate at a time (arena = allocated block)
+            // = 0 -> kNextPowerOfTwo, if the arena is filled up double its size (fast but RAM-intensive)
+            // = 1 -> kSameAsRequested, if the arena is filled up increase size exactly to what is needed for the operation
+            cudaOptions.arena_extend_strategy = 0;
+            sessionOptions.AppendExecutionProvider_CUDA(cudaOptions);
+            std::cout << "Using ONNX Runtime with GPU resources" << std::endl;
+        }
+        catch(const std::exception &e){
+            std::cout << "CUDA not available! Using ONNX Runtime with CPU resources" << std::endl;
+        }
+    }
+    unsigned int maxHardwareThreads = std::thread::hardware_concurrency();
+    sessionOptions.SetIntraOpNumThreads(maxHardwareThreads);
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     sessionOptions.SetLogId("YOLOModel");
 
@@ -62,16 +80,114 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
     }
 }
 
+/* using int for usingGPU instead of bool to have a N/A value and avoiding enum for semplicity */
+bool YOLO_model::isAvailableGPU(){
+    // Ottieni la lista dei provider compilati nel tuo ONNX Runtime
+    std::vector<std::string> providers = Ort::GetAvailableProviders();
+
+    for (const auto& p : providers) {
+        if (p == "CUDAExecutionProvider" || p == "DmlExecutionProvider") {
+            this->usingGPU = true;
+            return true;
+        }
+    }
+    this->usingGPU = false;
+    return false;
+}
+
+
+
+std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_letterbox_padding){
+    int slice_size = 640;
+    float overlap_ratio = 0.2;
+    int step = slice_size * (1 - overlap_ratio);
+
+    // removes previous detections, in case of multiple subsequent detections
+    this->detections.clear();
+
+    this->isAvailableGPU();
+
+    if(img.cols > 1.5*slice_size || img.rows > 1.5*slice_size){
+        Detections mergedDetections;
+        /* Tiled approach if image is too big (makes cards easier to detect for the model) */
+        if(this->usingGPU){
+            Detections tileDetections;
+            for(int y = 0; y <= img.rows - slice_size; y += step){
+                for(int x = 0; x <= img.cols - slice_size; x+= step){
+                    cv::Rect roi(x, y, slice_size, slice_size);
+                    cv::Mat tile = img(roi);
+                    tileDetections = detect(tile);
+                    /* proceeding to map the box coordinates found in the tile to the whole image,
+                    * then adding the detections of the specific tile to the detections of the overall image
+                    */
+                    for(auto &box : tileDetections.boundingBoxes){
+                        box.x += x;
+                        box.y += y;
+                    }
+                    mergeDetections(mergedDetections, tileDetections);
+                }
+            }
+            this->detections = filterDetectionsNMS(mergedDetections);
+        }
+        else{
+            unsigned int maxHardwareThreads = std::thread::hardware_concurrency();
+            auto activeThreads = std::make_shared<std::atomic<int>>(0);
+            std::vector<std::future<Detections>> futures;
+
+            for(int y = 0; y <= img.rows - slice_size; y += step){
+                for(int x = 0; x <= img.cols - slice_size; x+= step){
+                    while((*activeThreads) >= (int) maxHardwareThreads){
+                        std::this_thread::yield();
+                    }
+
+                    (*activeThreads)++;
+                    cv::Rect roi(x, y, slice_size, slice_size);
+                    cv::Mat tile = img(roi).clone();
+
+                    futures.push_back(std::async(std::launch::async, [this, tile, x, y, activeThreads](){
+                        Detections tileDetections = this->detect(tile);
+                        /* proceeding to map the box coordinates found in the tile to the whole image,
+                         * then adding the detections of the specific tile to the detections of the overall image */
+                        for(auto &box : tileDetections.boundingBoxes){
+                            box.x += x;
+                            box.y += y;
+                        }
+                        (*activeThreads)--;
+                        return tileDetections;
+                    }));
+                }
+            }
+            /* Collect detections, merge them and filter with NMS suppression */
+            for(auto& future : futures) mergeDetections(mergedDetections, future.get());
+            this->detections = filterDetectionsNMS(mergedDetections);
+        }
+    }
+    else this->detections = filterDetectionsNMS(this->detect(img));
+    return this->detections;
+}
+
+void YOLO_model::mergeDetections(Detections& dest, const Detections& source){
+    if(source.boundingBoxes.empty()) return;
+
+    size_t newSize = dest.boundingBoxes.size() + source.boundingBoxes.size();
+
+    dest.boundingBoxes.reserve(newSize);
+    dest.classConfidences.reserve(newSize);
+    dest.classIds.reserve(newSize);
+
+    dest.boundingBoxes.insert(dest.boundingBoxes.end(), source.boundingBoxes.begin(), source.boundingBoxes.end());
+    dest.classConfidences.insert(dest.classConfidences.end(), source.classConfidences.begin(), source.classConfidences.end());
+    dest.classIds.insert(dest.classIds.end(), source.classIds.begin(), source.classIds.end());
+
+}
+
 /* Takes the image and the labels as input, returns the detections found in that image */
-std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataClasses, bool enable_letterbox_padding){
+Detections YOLO_model::detect(const Mat &img, bool enable_letterbox_padding){
     /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
              such that every step is perfectly clear to everyone reading this code. */
 
     int inputHeight = img.rows;
     int inputWidth  = img.cols;
-
-    // removes previous detections, in case of multiple subsequent detections
-    detections.clear();
 
     /* It's possible to give an image as input without resizing in OnnxRuntime because it supports dynamic input, but the processing of the model is way slower.
        The input needs to be resized anyway for the YOLO model to have good accuracy, so pre-processing of the image is still needed and the dynamic input feature is not used for YOLO */
@@ -166,20 +282,12 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
 
     // Converting image data from cv::Mat to tensor (normalization to [0,1] and converting (cv::Mat) BGR to RGB as the YOLO model requires)
     double normalizationFactor = 1.0 / 255.0;
-
-    for (int row = 0; row < resizedHeight; row++) {
-        for (int col = 0; col < resizedWidth; col++) {
-            Vec3b pixel = resizedImg.at<Vec3b>(row, col);                                                            // cv::Mat -> Tensor
-            inputData[2 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[0] * normalizationFactor; //    B    ->   R
-            inputData[1 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[1] * normalizationFactor; //    G         G
-            inputData[0 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[2] * normalizationFactor; //    R    ->   B
-        }
-    }
+    Mat inputBlob = blobFromImage(resizedImg, normalizationFactor, Size(resizedWidth, resizedHeight), Scalar(), true, false, CV_32F);
 
     auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault); // Allocating the input tensor on CPU
     
     // Creating the input tensor (which is a view of the data, NOT a deep copy!)
-    Ort::Value inputOnnxTensor = Ort::Value::CreateTensor<float>(memoryInfo, inputData.data(), inputTensorSize, inputShape.data(), inputShape.size());
+    Ort::Value inputOnnxTensor = Ort::Value::CreateTensor<float>(memoryInfo, (float*)inputBlob.data, inputBlob.total(), inputShape.data(), inputShape.size());
 
     // retrieving now as string the name of the first input and output nodes
     // the allocations of these strings are automatically freed by the session
@@ -245,6 +353,7 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
     //              ....                                                                 ....
     //          class57_detection1                                                class57_detectionN
 
+    Detections goodDetections;
     vector<int> classIds;
     vector<float> detectedClassConfidences;
     vector<Rect> boundingBoxes;
@@ -303,34 +412,55 @@ std::vector<Detection> YOLO_model::detectObjects(Mat &img, vector<string> dataCl
             box.width  = min(box.width, img.cols - box.x);
             box.height = min(box.height, img.rows - box.y);
 
-
             boundingBoxes.push_back(box);
         }
     }
 
+    goodDetections.boundingBoxes = boundingBoxes;
+    goodDetections.classConfidences = detectedClassConfidences;
+    goodDetections.classIds = classIds;
+
+    return goodDetections;
     /* Non-Maxima Suppression and construction of the final array of detections */
+}
+
+std::vector<Detection> YOLO_model::filterDetectionsNMS(Detections goodDetections){
     vector<int> resultNMS;
-    cv::dnn::NMSBoxes(boundingBoxes, detectedClassConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
+    cv::dnn::NMSBoxes(goodDetections.boundingBoxes, goodDetections.classConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
+    std::vector<Detection> finalDetections;
 
     for(auto finalBoxIndex : resultNMS){
         Detection finalDetection;
-        finalDetection.classId         = classIds[finalBoxIndex];
-        finalDetection.className       = dataClasses[finalDetection.classId];
-        finalDetection.classConfidence = detectedClassConfidences[finalBoxIndex];
-        finalDetection.boundingBox     = boundingBoxes[finalBoxIndex];
-        detections.push_back(finalDetection);
+        finalDetection.classId         = goodDetections.classIds[finalBoxIndex];
+        finalDetection.classConfidence = goodDetections.classConfidences[finalBoxIndex];
+        finalDetection.boundingBox     = goodDetections.boundingBoxes[finalBoxIndex];
+        finalDetections.push_back(finalDetection);
     }
-
-    return detections;
+    return finalDetections;
 }
 
+/* Function to call to read the class names from the labels file */
 vector<string> YOLO_model::getDataClasses(string labelsFilename){
     vector<string> dataClasses;
     ifstream ifs(labelsFilename);
     string line;
     while (getline(ifs, line))
         dataClasses.push_back(line);
+    this->classNames = dataClasses;
     return dataClasses;
+}
+
+/* Function to call when class names have already been read from the file */
+vector<string> YOLO_model::getDetectionsClassNames(Detections detections){
+    std::vector<string> detectionsClassNames;
+    for(int id: detections.classIds){
+        detectionsClassNames.push_back(this->classNames[id]);
+    }
+    return detectionsClassNames;
+}
+
+std::string YOLO_model::getClassName(int classId){
+    return this->classNames[classId];
 }
 
 /*Drawing bounding boxes for the detected objects. The bounding box is scaled depending on the input image size, using values found empirically.*/
@@ -340,7 +470,7 @@ Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std
     {
         int thickness = max(1, int(max(inputHeight, inputWidth) / 640));
         rectangle(resultImg, detection.boundingBox, color, 2 * thickness);
-        string label = detection.className + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
+        string label = this->getClassName(detection.classId) + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
         putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, color, 1.5 * thickness);
         // TODO draw the text on a side of the box which is not outside the image
     }
@@ -361,9 +491,9 @@ void YOLO_model::setModelName(string modelName){
 }
 
 string YOLO_model::getModelName(){
-    return modelName;
+    return this->modelName;
 }
 
 std::vector<Detection> YOLO_model::getDetections(){
-    return detections;
+    return this->detections;
 }

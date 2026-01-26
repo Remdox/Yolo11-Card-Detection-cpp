@@ -9,14 +9,20 @@
 #include <onnxruntime_cxx_api.h>
 #include "shared.hpp"
 #include <iostream>
+#include <streambuf>
 #include <vector>
 #include <fstream>
 
 struct Detection{
-    int classId = -1;
-    std::string className = "undefined";
-    float classConfidence = 0;
     cv::Rect boundingBox = cv::Rect(0,0,0,0);
+    float classConfidence = 0;
+    int classId = -1;
+};
+
+struct Detections{
+    std::vector<cv::Rect> boundingBoxes;
+    std::vector<float> classConfidences;
+    std::vector<int> classIds;
 };
 
 class YOLO_model{
@@ -26,18 +32,26 @@ class YOLO_model{
         Ort::Session                     session;
         Ort::SessionOptions              sessionOptions;
         Ort::AllocatorWithDefaultOptions allocator;
+        bool                             usingGPU = false;
         const int                        YOLO_TARGET_INPUT_SIZE = 640; // MUST be multiple of 32. See YOLO_model::detectObjects implementation.
         std::vector<Detection>           detections;
         std::string                      modelName = "Yolo";
+        std::vector<std::string>         classNames;
     public:
         YOLO_model();
-        std::vector<Detection>   detectObjects(cv::Mat &img, std::vector<std::string> dataClasses, bool enable_letterbox_padding=true);
+        bool                     isAvailableGPU();
+        std::vector<Detection>   detectionPipeline(cv::Mat &img, bool enable_letterbox_padding=true);
+        Detections               detect(const cv::Mat &img, bool enable_letterbox_padding=true);
+        void                     mergeDetections(Detections& dest, const Detections& source);
         std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
+        std::vector<Detection>   filterDetectionsNMS(Detections goodDetections);
         cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &img, std::vector<Detection> &detections, cv::Scalar color);
         cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg, cv::Scalar color);
         void                     setModelName(std::string modelName);
         std::string              getModelName();
         std::vector<Detection>   getDetections();
+        std::vector<std::string> getDetectionsClassNames(Detections detections);
+        std::string              getClassName(int classId);
 };
 
 #endif

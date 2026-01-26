@@ -24,23 +24,26 @@ Table of Contents
 ## Requirements
 * CMake version: 4.0.0+
 * OpenCV version: 4+
-* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. If there are problems on using this library with CMake on Linux, you can manually install it:
+* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. Its GPU version is compatible with CUDA 12.x versions and will be selected first from the external folder. 
 
-**On LINUX**
+The ONNX Runtime Library can also be manually installed following the instructions below.
+
+### On LINUX
 
 Option 1 - Automatic (system-wide) installation using the bash script:
-* Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh)
+* Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh) or [onnxruntime_Linux_GPU_install.sh](./external/onnxruntime_Linux_GPU_install.sh) (The latter speeds up inference for videos and real-time detection).
 * See section: [Running the project](#Running-the-project)
 
 Option 2 - Manual (global) installation:
-* Extract onnxruntime-linux-x64-1.21.0.tgz
+* Extract the [onnxruntime-linux-x64-1.21.0.tgz](./external/onnxruntime-linux-x64-1.21.0.tgz) archive or download and extract the [onnxruntime-linux-x64-gpu-1.21.0.zip](./https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/download/0.1.0/onnxruntime-linux-x64-gpu-1.21.0.zip) archive from our most recent [Github Release](./https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/tag/0.1.0).
 * Copy the .so files of lib in /usr/local/lib64/
 * Copy the .cmake files in /usr/local/lib64/cmake/onnxruntime/
 * Copy the include/onnxruntime/ folder in /usr/local/include/
 * update the libraries cache running ldconfig
 
-**On WINDOWS**
-Use Linux (...well, you could also check out the official documentation for installing ONNXRuntime on their website).
+### On WINDOWS
+
+Please use Linux (..or you could also check out the official documentation for installing ONNXRuntime on their website).
 
 ## Running the project
 Make sure to put the videos to use for testing in the data/test/ directory and the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line.
@@ -109,18 +112,13 @@ In order to do this, some tools like [CVAT](https://www.cvat.ai/), [Label studio
 # Code
 ## 1.Object Detection and Initial Classification
 ### Training of the model and exporting to ONNX format
-The YOLO model is trained on the dataset using Kaggle's 2 freely available T4 GPUs. YOLO11s is employed to deliver good performance with enough speed. The training process has been optimized as in the following python code:
+The YOLO model is trained on the dataset using two RTX 3090 GPUs inside the UniPD DEI cluster (see its [official documentation](https://docs.dei.unipd.it/en/CLUSTER) and the [slurm file](./scripts/yolo.slurm) used). YOLO11s is employed to deliver good performance with enough speed. 
 
-```python
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-
-model = YOLO("/kaggle/working/yolo11s.pt")results = model.train(data="/kaggle/wresults = model.train(data="/kaggle/working/data.yaml", epochs=100, batch=16, augment=False, save_dir="/kaggle/working/output", patience=40, cache=True, workers=8, device=[0, 1])orking/data.yaml", epochs=100, batch=16, augment=False, save_dir="/kaggle/working/output", patience=40, cache=True, workers=8, device=[0, 1])
-results = model.train(data="/kaggle/working/data_SPLIT1.yaml", epochs=40, batch=16, augment=False, project="/kaggle/working/output", name="RAM1", patience=15, cache='ram', workers=8, device=[0, 1])
-```
-Given the size of the training data and the high fail rate of Kaggle machines, the training dataset has been splitted on 3 smaller subsets such that:
+The training dataset has been splitted on 3 smaller subsets such that:
  * Each subset contains images (and corresponding labels) which are different than the other datasets (preventing data leakage)
- * Each subset has a maximum size which allows each one of them to be loaded into RAM (Kaggle machines avail of GB of RAM)
-As a result, the training process is divided into three sequential steps: each step loads the model weights from the previous step and continues training on the next subset. This allows for a faster and more fault-tolerant training process with a negligent penalty on accuracy. The full code is available as a [.ipynb file](./scripts/training.ipynb).
+ * Each subset has a maximum size which allows each one of them to be loaded into RAM.
+
+As a result, the training process is divided into three sequential steps: each step loads the model weights from the previous step and continues training on the next subset. This allows for a faster and more fault-tolerant training process with a negligent penalty on accuracy. The full [script](./scripts/yolo_training.py) is available. 
  
 The model detects a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding boxes can be found for the same card, which makes it easier to find in case of partial occlusions. The bounding boxes are then classified as the suit and the rank they enclose.
 
@@ -132,7 +130,9 @@ The inference is subdivided into three sections:
  * Inference of the imported YOLO11s model, using a ONNX Runtime session. If the model used is static, YOLO11 generates 84000 detections.
  * Post-processing of the results. Each detection result consists of 4 values defining the object's bounding box (position and size), and a confidence score for every possible class which the object might correspond to. Non-maxima suppression is used to keep only 1 bounding box for each detected object.
  
- More details are available inside the [source code](./src/marco_annunziata.cpp).
+ In order to handle detection of small cards in big images, a sliding window approach is used: the image is subdivided in smaller, slightly overlapping tiles, with size equal to the image size used for training the model (640px). The overhead introduced by this method is mitigated by using multi-threading, where each tile is processed by a separate thread in parallel.
+
+ More details are available in the [source code](./src/marco_annunziata.cpp).
 
 ## 2. Hi-Lo classification and video processing
 
@@ -148,15 +148,4 @@ As described in the [proposal](./Cv_final_proposal.pdf), each bounding box is co
     * **Blue** boxes indicate neutral cards with a value of 0 (typically 7 through 9)
     * **Red** boxes indicate high-value cards that subtract from the count, assigned a value of -1 (typically 10, face cards and aces)
 
-## 4. Occlusions management
-
-### Short-term occlusions
-
-### Partial occlusions
-
-
-## 5. Output
-
-### Metrics
-
-### Results
+## 5. Output & Metrics
