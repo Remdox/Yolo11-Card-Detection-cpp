@@ -30,23 +30,26 @@ The ONNX Runtime Library can also be manually installed following the instructio
 
 ### On LINUX
 
-Option 1 - Automatic (system-wide) installation using the bash script:
-* Run [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh) or [onnxruntime_Linux_GPU_install.sh](./external/onnxruntime_Linux_GPU_install.sh) (The latter speeds up inference for videos and real-time detection).
-* See section: [Running the project](#Running-the-project)
+Option 1 - Manual installation inside the external folder:
+* Extract the [onnxruntime-linux-x64-1.21.0.tgz](./external/onnxruntime-linux-x64-1.21.0.tgz) archive or download and extract the [onnxruntime-linux-x64-gpu-1.21.0.zip](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/download/0.1.0/onnxruntime-linux-x64-gpu-1.21.0.zip) archive from our most recent [Github Release](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/tag/0.1.0);
+* Move the extracted folder inside the external/ directory.
 
-Option 2 - Manual (global) installation:
-* Extract the [onnxruntime-linux-x64-1.21.0.tgz](./external/onnxruntime-linux-x64-1.21.0.tgz) archive or download and extract the [onnxruntime-linux-x64-gpu-1.21.0.zip](./https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/download/0.1.0/onnxruntime-linux-x64-gpu-1.21.0.zip) archive from our most recent [Github Release](./https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/tag/0.1.0).
-* Copy the .so files of lib in /usr/local/lib64/
-* Copy the .cmake files in /usr/local/lib64/cmake/onnxruntime/
-* Copy the include/onnxruntime/ folder in /usr/local/include/
-* update the libraries cache running ldconfig
+Option 2 - Automatic (system-wide) installation using the bash script:
+* Run either [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh) or [onnxruntime_Linux_GPU_install.sh](./external/onnxruntime_Linux_GPU_install.sh);
+
+Option 3 - Manual global installation:
+* Follow the first step in option 1;
+* Copy the .so files of lib in `/usr/local/lib64/` ;
+* Copy the .cmake files in `/usr/local/lib64/cmake/onnxruntime/` ;
+* Copy the `include/onnxruntime/` folder in `/usr/local/include/` ;
+* update the libraries cache running `ldconfig` ;
 
 ### On WINDOWS
 
 Please use Linux (..or you could also check out the official documentation for installing ONNXRuntime on their website).
 
 ## Running the project
-Make sure to put the videos to use for testing in the data/test/ directory and the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line.
+Make sure to put the videos to use for testing in a `data/test/videos` directory and the images to use for testing in a `data/test/images` directory (it has been already provided the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line).
 To run the project:
 1. cd into build/
 2. cmake ..
