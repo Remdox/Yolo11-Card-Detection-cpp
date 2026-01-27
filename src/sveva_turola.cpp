@@ -21,7 +21,7 @@ int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     model.setModelName("YOLO11s");
     vector<string> dataClasses = model.getDataClasses(labels_path);
     int frameCount = 0;
-    int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
+    int codec = VideoWriter::fourcc('m', 'p', '4', 'v');
     int fps = cap.get(CAP_PROP_FPS);
     vector<Detection> detections;
 
@@ -50,12 +50,12 @@ int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
         int key = waitKey(1) & 0xFF;
 
         if (frameCount % (fps/2) == 0) { // TODO cambiare
-            detections = model.detectObjects(frame, dataClasses, true);
+            detections = model.detectionPipeline(frame);
         }
         frameCount++;
         Mat outputFrame = cardValues(detections, model, frame);
         out.write(outputFrame);
-        namedWindow("Output Video", WND_PROP_FULLSCREEN);
+        namedWindow("Output Video", WINDOW_NORMAL);
         setWindowProperty("Output Video", WND_PROP_FULLSCREEN, WINDOW_FULLSCREEN);
         imshow("Output Video", outputFrame);
         waitKey(1);
@@ -74,7 +74,7 @@ int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, s
     model.setModelName("YOLO11s");
     vector<string> dataClasses = model.getDataClasses(labels_path);
     int frameCount = 0;
-    int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
+    int codec = VideoWriter::fourcc('m', 'p', '4', 'v');
     int fps = cap.get(CAP_PROP_FPS);
     vector<Detection> detections;
 
@@ -103,7 +103,7 @@ int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, s
         int key = waitKey(1) & 0xFF;
 
         if (frameCount % (fps/2) == 0) { //TODO cambiare
-            detections = model.detectObjects(frame, dataClasses, true);
+            detections = model.detectionPipeline(frame);
         }
         frameCount++;
         Mat outputFrame = cardValues(detections, model, frame);
@@ -156,7 +156,7 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
     vector<Detection> green, blue, red;
 
     for(auto detection : detections){
-        char cardNumber = detection.className[0];
+        char cardNumber = model.getClassName(detection.classId)[0];
 
         if(cardNumber >= '2' && cardNumber <= '6'){
             green.push_back(detection);
