@@ -13,9 +13,7 @@ Table of Contents
    * [Code](#code)
       * [Object Detection and Initial Classification](#Object-Detection-and-Initial-Classification)
       * [Hi-Lo classification and Card Counting](#Hi-Lo-classification-and-Card-Counting)
-      * [Visual Overlay](#Visual-Overlay)
-      * [Occlusions management](#Occlusions-management)
-   * [Output](output)
+   * [Output & Metrics](#Output-&-Metrics)
 
 # Introduction
 [Read the full proposal](./Cv_final_proposal.pdf).
@@ -24,17 +22,18 @@ Table of Contents
 ## Requirements
 * CMake version: 4.0.0+
 * OpenCV version: 4+
-* ONNXRuntime version: 1.21.0. The binaries are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. Its GPU version is compatible with CUDA 12.x versions and will be selected first from the external folder. 
+* ONNX Runtime version: 1.21.0. The binaries for the CPU version are already bundled inside the project in the [external](./external) folder and **CMake is already configured to find the binaries either in this folder or in the system's directories**. The GPU version can be downloaded from the most recent [Github Release](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/latest) and it's compatible with CUDA 12.x versions. If both packages are present in the external folder, the GPU version will be selected first. 
 
-The ONNX Runtime Library can also be manually installed following the instructions below.
+\
+The ONNX Runtime Library can be manually installed following the instructions below.
 
 ### On LINUX
 
-Option 1 - Manual installation inside the external folder:
-* Extract the [onnxruntime-linux-x64-1.21.0.tgz](./external/onnxruntime-linux-x64-1.21.0.tgz) archive or download and extract the [onnxruntime-linux-x64-gpu-1.21.0.zip](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/download/0.1.0/onnxruntime-linux-x64-gpu-1.21.0.zip) archive from our most recent [Github Release](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/tag/0.1.0);
+Option 1 - Manual installation inside the [external](./external) folder:
+* Extract the [onnxruntime-linux-x64-1.21.0.tgz](./external/onnxruntime-linux-x64-1.21.0.tgz) archive or download and extract the [onnxruntime-linux-x64-gpu-1.21.0.zip](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/latest/download/onnxruntime-linux-x64-gpu-1.21.0.zip) archive from our most recent [Github Release](https://github.com/Remdox/Yolo11-Card-Detection-cpp/releases/latest);
 * Move the extracted folder inside the external/ directory.
 
-Option 2 - Automatic (system-wide) installation using the bash script:
+Option 2 - Automatic (system-wide) installation using the provided bash script:
 * Run either [onnxruntime_Linux_install.sh](./external/onnxruntime_Linux_install.sh) or [onnxruntime_Linux_GPU_install.sh](./external/onnxruntime_Linux_GPU_install.sh);
 
 Option 3 - Manual global installation:
@@ -46,7 +45,7 @@ Option 3 - Manual global installation:
 
 ### On WINDOWS
 
-Please use Linux (..or you could also check out the official documentation for installing ONNXRuntime on their website).
+Please use Linux (..or you could also check out the official documentation for installing ONNX Runtime on their website).
 
 ## Running the project
 Make sure to put the videos to use for testing in a `data/test/videos` directory and the images to use for testing in a `data/test/images` directory (it has been already provided the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line).
@@ -113,7 +112,9 @@ In order to do this, some tools like [CVAT](https://www.cvat.ai/), [Label studio
 
 
 # Code
-## 1.Object Detection and Initial Classification
+## Doxygen Documentation
+
+## Object Detection and Initial Classification
 ### Training of the model and exporting to ONNX format
 The YOLO model is trained on the dataset using two RTX 3090 GPUs inside the UniPD DEI cluster (see its [official documentation](https://docs.dei.unipd.it/en/CLUSTER) and the [slurm file](./scripts/yolo.slurm) used). YOLO11s is employed to deliver good performance with enough speed. 
 
@@ -137,13 +138,7 @@ The inference is subdivided into three sections:
 
  More details are available in the [source code](./src/marco_annunziata.cpp).
 
-## 2. Hi-Lo classification and video processing
-
-
-## 3. Visual Overlay
-Since YOLO11s is trained on bounding boxes enclosing only the suit and the rank of the card, it’s necessary to develop a method for extending these to cover the entire card.
-
-### Finding the homography of the full card
+## Hi-Lo classification and video processing
 
 ### Color-coding by Hi-Lo class
 As described in the [proposal](./Cv_final_proposal.pdf), each bounding box is color-coded:
@@ -151,4 +146,4 @@ As described in the [proposal](./Cv_final_proposal.pdf), each bounding box is co
     * **Blue** boxes indicate neutral cards with a value of 0 (typically 7 through 9)
     * **Red** boxes indicate high-value cards that subtract from the count, assigned a value of -1 (typically 10, face cards and aces)
 
-## 5. Output & Metrics
+# Output & Metrics
