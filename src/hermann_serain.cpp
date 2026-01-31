@@ -20,6 +20,12 @@ using namespace cv;
 using namespace std;
 using namespace Shared;
 
+//User parameters consts
+const std::string DEFAULT_VIDEO_PATH = "../data/test/videos/default_video.mp4";
+const std::string DEFAULT_IMAGE_PATH = "../data/test/images/default_image.jpg";
+const std::string FLAG_VIDEO = "--default-video";
+const std::string FLAG_IMAGE = "--default-image";
+
 //Tab utilities
 struct TerminalRawMode
 {
@@ -53,10 +59,31 @@ string handleFile();
 
 //WARNING: THIS PROGRAM USE THE TERMINAL API AND PROCESS THE TERMINAL IN RAW MODE, 
 //IF THE TERMINAL DOESN'T WORK AS BEFORE TYPE BLINDED "reset"
-UserData readInput()
+UserData readInput(int argc, char** argv)
 {
-    string choiceStr;
+    //NOTE: Here I'm gonna read the user input from the terminal
     UserData result(Choice::Invalid, "");
+
+    if(argc > 0) {
+        std::vector<std::string> args(argv, argv + argc);
+        
+        for (int i = 1; i < argc; ++i) {
+            if (args[i] == FLAG_VIDEO) {
+                result.data_path = DEFAULT_VIDEO_PATH;
+                result.choice = Choice::File;
+            } 
+            else if (args[i] == FLAG_IMAGE) {
+                result.data_path = DEFAULT_IMAGE_PATH;
+                result.choice = Choice::File;
+            }
+        }
+    }
+
+    if(result.choice != Choice::Invalid)
+        return result;
+
+    //NOTE: I'm gonna read the user input from now on
+    string choiceStr;
 
     // NOTE: Let's keep asking if the input is invalid
     while (result.choice == Choice::Invalid)

@@ -24,6 +24,6 @@ struct UserData {
 };
 
 //NOTE: Public methods
-UserData readInput();
+UserData readInput(int argc, char** argv);
 
 #endif

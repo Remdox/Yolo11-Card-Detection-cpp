@@ -31,7 +31,7 @@ int main(int argc, char** argv){
     string allowedVidType[] = {".mp4"};
     YOLO_model model;
     model.setModelName("YOLO11s");
-    UserData userData = readInput();
+    UserData userData = readInput(argc, argv);
 
     switch (userData.choice)
     {
