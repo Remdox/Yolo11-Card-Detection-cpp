@@ -9,6 +9,7 @@
 #include <numeric>
 
 #include "shared.hpp"
+#include "marco_annunziata.hpp"
 
 using namespace cv;
 using namespace std;
@@ -23,7 +24,14 @@ struct UserData {
         : choice(_choice), data_path(_data_path) {} 
 };
 
+struct MetricsCounter {
+    int tp = 0; // True Positives
+    int fp = 0; // False Positives
+    int fn = 0; // False Negatives
+};
+
 //NOTE: Public methods
 UserData readInput(int argc, char** argv);
+void computeImageMetrics(string imagePath, std::vector<Detection> predictedDetections);
 
 #endif

@@ -53,7 +53,9 @@ int main(int argc, char** argv){
                     cout << "GPU available? " << (model.isAvailableGPU() ? "YES" : "NO") << endl;
                     model.detectionPipeline(frame);
                     Mat resultImg = model.drawBoundingBoxes(frame.rows, frame.cols, frame, Scalar(255, 0, 0));
-                    std::string windowTitle = model.getModelName() + " - " + std::to_string(model.getDetections().size()) + " detections";
+                    auto detections = model.getDetections();
+                    computeImageMetrics(userData.data_path, detections);
+                    std::string windowTitle = model.getModelName() + " - " + std::to_string(detections.size()) + " detections";
                     namedWindow(windowTitle, WINDOW_NORMAL);
                     imshow(windowTitle, resultImg);
                     waitKey(0);
