@@ -45,16 +45,29 @@ Option 3 - Manual global installation:
 
 ### On WINDOWS
 
-Please use Linux (..or you could also check out the official documentation for installing ONNX Runtime on their website).
+Please use Linux (...or you could also check out the official documentation for installing ONNX Runtime on the official website).
 
 ## Running the project
-Make sure to put the videos to use for testing in a `data/test/videos` directory and the images to use for testing in a `data/test/images` directory (it has been already provided the .onnx file of the model in data/model/ directory along with a .txt file containing the labels, one label per line).
 To run the project:
-1. cd into build/
-2. cmake ..
-3. make
-4. to start, test on an image with `./finalProject <image_to_test>` or see the help page with `./finalProject -h`
-
+1. Build and compilation:
+   ```
+   cd build
+   cmake ..
+   make
+   ```
+4. You can run the project on a default pre-bundled image using:
+   ```
+   ./finalProject --default-image
+   ```
+   Run with a default pre-bundled video using:
+   ```
+   ./finalProject --default-video
+   ```
+   Alternatively, provide a custom file or the camera, using the main menu:
+   ```
+   ./finalProject
+   ```
+   When specifying the path of the custom file relative to the build directory, it's possible to use the `TAB` shortcut for autocompletition.
    
 # Datasets
 Some datasets of the proposal are used, with the addition of other datasets to have greater variety and robustness. No data augmentation has been used for the datasets, keeping a low memory overhead.
@@ -146,4 +159,11 @@ As described in the [proposal](./Cv_final_proposal.pdf), each bounding box is co
     * **Blue** boxes indicate neutral cards with a value of 0 (typically 7 through 9)
     * **Red** boxes indicate high-value cards that subtract from the count, assigned a value of -1 (typically 10, face cards and aces)
 
-# Output & Metrics
+### Metrics
+The metrics used are: Precision, Recall, F1-Score. 
+
+For custom files, ground truths can be manually added inside the `data/test/ground_truths` subfolders. The content of the ground truths must be expressed in the Multi-Object Tracking (MOT) format in order to be correctly read. For more info on how to add ground truths for custom files, more specific [instructions](./data/test/ground_truths/README_adding_labels.txt) are provided. 
+
+If the ground truths for a custom file are not provided, the program will still run the detection pipeline without computing metrics.
+
+# Output

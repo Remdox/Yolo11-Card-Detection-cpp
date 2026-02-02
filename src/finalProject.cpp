@@ -68,7 +68,7 @@ int main(int argc, char** argv){
                 for(auto type: allowedVidType){
                     if(userData.data_path.rfind(type) != string::npos){
                         fileType = fileCategories::VIDEO;
-                        cout << "GPU available? " << (model.isAvailableGPU() ? "YES" : "NO") << endl;
+                        cout << "Using ONNX Runtime GPU? " << (model.isAvailableGPU() ? "YES" : "NO") << endl;
                         frameCapture(userData.data_path, labels_path);
                         break;
                     }
