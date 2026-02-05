@@ -3,7 +3,7 @@
 #include "shared.hpp"
 #include <opencv2/core/types.hpp>
 #include <opencv2/features2d.hpp>
-#include <opencv2/highgui.hpp> 
+#include <opencv2/highgui.hpp>
 #include <onnxruntime_cxx_api.h>
 #include <algorithm>
 #include <future>
@@ -15,9 +15,15 @@ using namespace std;
 using namespace cv;
 using namespace cv::dnn;
 
-const float CLASS_CONFIDENCE_THRESHOLD = 0.5;
-const float NMS_THRESHOLD = 0.5;
-
+/** \brief Constructor that handles the creation of the ONNX Runtime environment.
+     * @details The constructor:
+     * - make use of a logger function for logging its activities
+     * - sets the use of the GPU if present
+     * - sets the number of threads to use as the maximum number available
+     * - sets the path of the model
+     * @see YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message)
+     * @author Marco Annunziata
+*/
 YOLO_model::YOLO_model(): env(ORT_LOGGING_LEVEL_VERBOSE, "YOLOModel", YOLO_model::logger, this), session(nullptr), sessionOptions(){
     if(usingGPU){
         try{
@@ -40,10 +46,21 @@ YOLO_model::YOLO_model(): env(ORT_LOGGING_LEVEL_VERBOSE, "YOLOModel", YOLO_model
     sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     sessionOptions.SetLogId("YOLOModel");
 
-    const char* modelPath = "../data/model/YOLO11s_big_best_dynamic.onnx";
+    const char* modelPath = "../data/model/YOLO11s_big_best_dynamic.onnx"; // YOLO11s_big_best_dynamic
     session = Ort::Session(env, modelPath, sessionOptions);
 }
 
+
+/** \brief Logger function used by the constructor that handles the creation of the ONNX Runtime environment.
+     * @param param
+     * @param severity
+     * @param category
+     * @param logid
+     * @param code_location
+     * @param message
+     * @see YOLO_model::YOLO_model()
+     * @author Marco Annunziata
+*/
 void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location,
     const char* message){
     static std::mutex logMutex;
@@ -80,7 +97,10 @@ void YOLO_model::logger(void* param, OrtLoggingLevel severity, const char* categ
     }
 }
 
-/* using int for usingGPU instead of bool to have a N/A value and avoiding enum for semplicity */
+/** \brief Checks if GPU providers are available and updates the class with this information.
+     * @return a boolean which is true if a GPU provider is available.
+     * @see detectionPipeline(Mat &img, bool enable_letterbox_padding)
+*/
 bool YOLO_model::isAvailableGPU(){
     // Ottieni la lista dei provider compilati nel tuo ONNX Runtime
     std::vector<std::string> providers = Ort::GetAvailableProviders();
@@ -96,14 +116,28 @@ bool YOLO_model::isAvailableGPU(){
 }
 
 
-
+/** \brief High-level function for fast and accurate detection of bounding boxes on the given image
+     * @details The pipeline consists of:
+     *  - clearing the previous model detections
+     *  - checking if the GPU is available
+     *  - using a multi-threaded tiled approach for detecting bounding boxes in big images (which are images with one dimension exceeds 1.5*640 pixels)
+     *  - directly starting the detection for images small enough (with all dimensions within 1.5*640 pixels)
+     *  - filtering the detections using Non-Maximum Suppression (NMS)
+     * @param img A cv::Mat object containing the image
+     * @param enable_letterbox_padding flag to enable letterbox padding on the image before running the detection
+     * @return a std::vector of Detection structs with all good detections found in the image.
+     * @see detect(const Mat &img, bool enable_letterbox_padding)
+     * @see mergeDetections(Detections& dest, const Detections& source)
+     * @see filterDetectionsNMS(Detections goodDetections)
+     * @author Marco Annunziata
+*/
 std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_letterbox_padding){
     int slice_size = 640;
     float overlap_ratio = 0.2;
     int step = slice_size * (1 - overlap_ratio);
 
     // removes previous detections, in case of multiple subsequent detections
-    this->detections.clear();
+    clearDetections();
 
     this->isAvailableGPU();
 
@@ -116,7 +150,7 @@ std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_lette
                 for(int x = 0; x <= img.cols - slice_size; x+= step){
                     cv::Rect roi(x, y, slice_size, slice_size);
                     cv::Mat tile = img(roi);
-                    tileDetections = detect(tile);
+                    tileDetections = this->detect(tile, enable_letterbox_padding);
                     /* proceeding to map the box coordinates found in the tile to the whole image,
                     * then adding the detections of the specific tile to the detections of the overall image
                     */
@@ -127,6 +161,8 @@ std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_lette
                     mergeDetections(mergedDetections, tileDetections);
                 }
             }
+            /* Detection on the whole image improves result for large images having really large cards */
+            mergeDetections(mergedDetections, this->detect(img, enable_letterbox_padding));
             this->detections = filterDetectionsNMS(mergedDetections);
         }
         else{
@@ -144,8 +180,8 @@ std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_lette
                     cv::Rect roi(x, y, slice_size, slice_size);
                     cv::Mat tile = img(roi).clone();
 
-                    futures.push_back(std::async(std::launch::async, [this, tile, x, y, activeThreads](){
-                        Detections tileDetections = this->detect(tile);
+                    futures.push_back(std::async(std::launch::async, [this, tile, enable_letterbox_padding, x, y, activeThreads](){
+                        Detections tileDetections = this->detect(tile, enable_letterbox_padding);
                         /* proceeding to map the box coordinates found in the tile to the whole image,
                          * then adding the detections of the specific tile to the detections of the overall image */
                         for(auto &box : tileDetections.boundingBoxes){
@@ -157,15 +193,28 @@ std::vector<Detection> YOLO_model::detectionPipeline(Mat &img, bool enable_lette
                     }));
                 }
             }
-            /* Collect detections, merge them and filter with NMS suppression */
+            /* Detect on the whole image, collect detections and merge them, then filter with NMS suppression */
+            futures.push_back(std::async(std::launch::async, [this, img, enable_letterbox_padding](){ return this->detect(img, enable_letterbox_padding); }));
             for(auto& future : futures) mergeDetections(mergedDetections, future.get());
             this->detections = filterDetectionsNMS(mergedDetections);
         }
     }
-    else this->detections = filterDetectionsNMS(this->detect(img));
+    else this->detections = filterDetectionsNMS(this->detect(img, enable_letterbox_padding));
     return this->detections;
 }
 
+/** clears the contents of the class attribute #detections */
+void YOLO_model::clearDetections(){
+    this->detections.clear();
+}
+
+/** \brief Merges two Detections structs together in the first struct passed
+     * @details Useful for merging detections of different tiles of the same image.
+     * @param dest pointer to the Detections struct used as destination
+     * @param source pointer to the Detections struct to merge
+     * @see detectionPipeline(Mat &img, bool enable_letterbox_padding)
+     * @author Marco Annunziata
+*/
 void YOLO_model::mergeDetections(Detections& dest, const Detections& source){
     if(source.boundingBoxes.empty()) return;
 
@@ -181,7 +230,16 @@ void YOLO_model::mergeDetections(Detections& dest, const Detections& source){
 
 }
 
-/* Takes the image and the labels as input, returns the detections found in that image */
+/** \brief Detects bounding boxes from an image
+     * @details There is a pre-processing step to prepare the image for the YOLO model (including letterbox padding, if enabled).
+     * @attention 1) The function by itself doesn't clear previous detections saved inside the class. \n 2) The function returns ALL detections, even the ones with low confidence.
+     * @param img A cv::Mat object containing the image
+     * @param enable_letterbox_padding flag to enable letterbox padding on the image before running the detection
+     * @see detectionPipeline(Mat &img, bool enable_letterbox_padding)
+     * @see clearDetections()
+     * @see filterDetectionsNMS(Detections goodDetections)
+     * @author Marco Annunziata
+*/
 Detections YOLO_model::detect(const Mat &img, bool enable_letterbox_padding){
     /* Note: there is small to no documentation of the C++ implementation of OnnxRuntime even from the developers themselves, so this function has been throughly optimized and documented
              such that every step is perfectly clear to everyone reading this code. */
@@ -282,12 +340,19 @@ Detections YOLO_model::detect(const Mat &img, bool enable_letterbox_padding){
 
     // Converting image data from cv::Mat to tensor (normalization to [0,1] and converting (cv::Mat) BGR to RGB as the YOLO model requires)
     double normalizationFactor = 1.0 / 255.0;
-    Mat inputBlob = blobFromImage(resizedImg, normalizationFactor, Size(resizedWidth, resizedHeight), Scalar(), true, false, CV_32F);
+    for (int row = 0; row < resizedHeight; row++) {
+        for (int col = 0; col < resizedWidth; col++) {
+            Vec3b pixel = resizedImg.at<Vec3b>(row, col);                                                            // cv::Mat -> Tensor
+            inputData[2 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[0] * normalizationFactor; //    B    ->   R
+            inputData[1 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[1] * normalizationFactor; //    G         G
+            inputData[0 * resizedHeight * resizedWidth + row * resizedWidth + col] = pixel[2] * normalizationFactor; //    R    ->   B
+        }
+    }
 
     auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault); // Allocating the input tensor on CPU
     
     // Creating the input tensor (which is a view of the data, NOT a deep copy!)
-    Ort::Value inputOnnxTensor = Ort::Value::CreateTensor<float>(memoryInfo, (float*)inputBlob.data, inputBlob.total(), inputShape.data(), inputShape.size());
+    Ort::Value inputOnnxTensor = Ort::Value::CreateTensor<float>(memoryInfo, inputData.data(), inputTensorSize, inputShape.data(), inputShape.size());
 
     // retrieving now as string the name of the first input and output nodes
     // the allocations of these strings are automatically freed by the session
@@ -424,6 +489,12 @@ Detections YOLO_model::detect(const Mat &img, bool enable_letterbox_padding){
     /* Non-Maxima Suppression and construction of the final array of detections */
 }
 
+/** \brief Applies Non-Maximum Suppression to detections with low confidence
+     * @param goodDetections a Detections struct containing the detections
+     * @return A std::vector of Detection structs containing only the detections with confidence higher than #CLASS_CONFIDENCE_THRESHOLD
+     * @see detectionPipeline(Mat &img, bool enable_letterbox_padding)
+     * @author Marco Annunziata
+*/
 std::vector<Detection> YOLO_model::filterDetectionsNMS(Detections goodDetections){
     vector<int> resultNMS;
     cv::dnn::NMSBoxes(goodDetections.boundingBoxes, goodDetections.classConfidences, CLASS_CONFIDENCE_THRESHOLD, NMS_THRESHOLD, resultNMS);
@@ -439,7 +510,12 @@ std::vector<Detection> YOLO_model::filterDetectionsNMS(Detections goodDetections
     return finalDetections;
 }
 
-/* Function to call to read the class names from the labels file */
+/** \brief Function to call to read the class names from the labels file and save them inside #classNames attribute of the class
+     * @param labelsFilename a string with the path of the labels file
+     * @return A std::vector of strings containing the labels saved in #classNames
+     * @see getDetectionsClassNames(Detections detections)
+     * @author Marco Annunziata
+*/
 vector<string> YOLO_model::getDataClasses(string labelsFilename){
     vector<string> dataClasses;
     ifstream ifs(labelsFilename);
@@ -450,7 +526,14 @@ vector<string> YOLO_model::getDataClasses(string labelsFilename){
     return dataClasses;
 }
 
-/* Function to call when class names have already been read from the file */
+/** \brief Returns the class names of the corresponding id's given by the Detections struct given in input
+     * @details In order to find names, #classNames is used, meaning it must not be empty.
+     * @attention Function to call only when class names have already been read from the file, meaning getDataClasses(string labelsFilename) has to be called first
+     * @param detections a Detections struct containing all detections
+     * @return A std::vector of strings containing the corresponding names
+     * @see getDataClasses(string labelsFilename)
+     * @author Marco Annunziata
+*/
 vector<string> YOLO_model::getDetectionsClassNames(Detections detections){
     std::vector<string> detectionsClassNames;
     for(int id: detections.classIds){
@@ -459,20 +542,34 @@ vector<string> YOLO_model::getDetectionsClassNames(Detections detections){
     return detectionsClassNames;
 }
 
+/** \brief Returns the class name of the corresponding id given in input
+     * @details In order to find names, #classNames is used, meaning it must not be empty.
+     * @attention Function to call only when class names have already been read from the file, meaning getDataClasses(string labelsFilename) has to be called first
+     * @param classId a integer representing the id of the detected bounding box
+     * @return A string containing the corresponding name
+     * @author Marco Annunziata
+*/
 std::string YOLO_model::getClassName(int classId){
     return this->classNames[classId];
 }
 
-/*Drawing bounding boxes for the detected objects. The bounding box is scaled depending on the input image size, using values found empirically.*/
-Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std::vector<Detection> &detections, Scalar color){
+/** \brief Draws bounding boxes for the detected objects.
+     * @details The bounding box is scaled depending on the input image size, using empirical values.
+     * @param img a integer representing the id of the detected bounding box
+     * @param detections a vector of Detection structs containing the detections
+     * @param color a integer representing the id of the detected bounding box
+     * @return A cv::Mat object containing the image with bounding box drawn, if present.
+     * @see drawBoundingBoxes(Mat &img, Scalar color)
+     * @author Marco Annunziata
+*/
+cv::Mat YOLO_model::drawBoundingBoxes(cv::Mat &img, std::vector<Detection> &detections, cv::Scalar color){
     Mat resultImg = img.clone();
     for (auto detection : detections)
     {
-        int thickness = max(1, int(max(inputHeight, inputWidth) / 640));
+        int thickness = max(1, int(max(img.rows, img.cols) / 640));
         rectangle(resultImg, detection.boundingBox, color, 2 * thickness);
         string label = this->getClassName(detection.classId) + " " + to_string(static_cast<int>(detection.classConfidence * 100)) + "%";
         putText(resultImg, label, Point(detection.boundingBox.x, detection.boundingBox.y - 5 * thickness), FONT_HERSHEY_SIMPLEX, 0.5 * thickness, color, 1.5 * thickness);
-        // TODO draw the text on a side of the box which is not outside the image
     }
     // std::string windowTitle = getModelName() + " - " + std::to_string(detections.size()) + " detections";
     // namedWindow(windowTitle, WINDOW_NORMAL);
@@ -481,19 +578,35 @@ Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, std
     return resultImg;
 }
 
-Mat YOLO_model::drawBoundingBoxes(int inputWidth, int inputHeight, Mat &img, Scalar color){
-    return drawBoundingBoxes(inputWidth, inputHeight, img, detections, color);
+/** \brief Draws bounding boxes for the detected objects, using the detections contained in #detections
+     * @details The bounding box is scaled depending on the input image size, using empirical values.
+     * @param img a integer representing the id of the detected bounding box
+     * @param color a integer representing the id of the detected bounding box
+     * @return A cv::Mat object containing the image with bounding box drawn, if present.
+     * @see drawBoundingBoxes(Mat &img, std::vector<Detection> &detections, Scalar color)
+     * @author Marco Annunziata
+*/
+cv::Mat YOLO_model::drawBoundingBoxes(cv::Mat &img, cv::Scalar color){
+    return drawBoundingBoxes(img, this->detections, color);
 }
 
-
+/**  \brief #modelName setter
+     * @author Marco Annunziata
+*/
 void YOLO_model::setModelName(string modelName){
     this->modelName = modelName;
 }
 
+/**  \brief #modelName getter
+     * @author Marco Annunziata
+*/
 string YOLO_model::getModelName(){
     return this->modelName;
 }
 
+/**  \brief #detections getter
+     * @author Marco Annunziata
+*/
 std::vector<Detection> YOLO_model::getDetections(){
     return this->detections;
 }

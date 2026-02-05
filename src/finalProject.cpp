@@ -52,7 +52,7 @@ int main(int argc, char** argv){
                     vector<string> dataClasses = model.getDataClasses(labels_path);
                     cout << "GPU available? " << (model.isAvailableGPU() ? "YES" : "NO") << endl;
                     model.detectionPipeline(frame);
-                    Mat resultImg = model.drawBoundingBoxes(frame.rows, frame.cols, frame, Scalar(255, 0, 0));
+                    Mat resultImg = model.drawBoundingBoxes(frame, Scalar(255, 0, 0));
                     auto detections = model.getDetections();
                     computeImageMetrics(userData.data_path, detections);
                     std::string windowTitle = model.getModelName() + " - " + std::to_string(detections.size()) + " detections";

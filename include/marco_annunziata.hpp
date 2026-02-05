@@ -37,16 +37,19 @@ class YOLO_model{
         std::vector<Detection>           detections;
         std::string                      modelName = "Yolo";
         std::vector<std::string>         classNames;
+        const float CLASS_CONFIDENCE_THRESHOLD = 0.5;
+        const float NMS_THRESHOLD = 0.5;
     public:
         YOLO_model();
         bool                     isAvailableGPU();
         std::vector<Detection>   detectionPipeline(cv::Mat &img, bool enable_letterbox_padding=true);
+        void                     clearDetections();
         Detections               detect(const cv::Mat &img, bool enable_letterbox_padding=true);
         void                     mergeDetections(Detections& dest, const Detections& source);
         std::vector<std::string> getDataClasses(std::string labelsFilename="../data/model/labels.txt");
         std::vector<Detection>   filterDetectionsNMS(Detections goodDetections);
-        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &img, std::vector<Detection> &detections, cv::Scalar color);
-        cv::Mat                  drawBoundingBoxes(int inputWidth, int inputHeight, cv::Mat &resultImg, cv::Scalar color);
+        cv::Mat                  drawBoundingBoxes(cv::Mat &img, std::vector<Detection> &detections, cv::Scalar color);
+        cv::Mat                  drawBoundingBoxes(cv::Mat &img, cv::Scalar color);
         void                     setModelName(std::string modelName);
         std::string              getModelName();
         std::vector<Detection>   getDetections();
