@@ -172,13 +172,13 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
     Mat outputFrame = frame.clone();
 
     if(!green.empty()){
-        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, green, Scalar(0, 255, 0));
+        outputFrame = model.drawBoundingBoxes(outputFrame, green, Scalar(0, 255, 0));
     }
     if(!blue.empty()){
-        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, blue, Scalar(255, 0, 0));
+        outputFrame = model.drawBoundingBoxes(outputFrame, blue, Scalar(255, 0, 0));
     }
     if(!red.empty()){
-        outputFrame = model.drawBoundingBoxes(frame.rows, frame.cols, outputFrame, red, Scalar(0, 0, 255));
+        outputFrame = model.drawBoundingBoxes(outputFrame, red, Scalar(0, 0, 255));
     }
 
     return outputFrame;
