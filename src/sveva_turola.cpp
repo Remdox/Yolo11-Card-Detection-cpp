@@ -1,3 +1,4 @@
+// AUTHOR: Sveva Turola
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/opencv.hpp>
@@ -21,8 +22,16 @@ using namespace std;
 using namespace cv;
 namespace fs = std::filesystem;
 
-// TODO fare commenti doxygen
-
+/** \brief Initializes the video source and manages the frame extraction process.
+    * @details This function sets up the environment for video analysis. It creates a fresh 
+    * output directory for frames, removing any previous content. Depending on the input, 
+    * it opens either a camera (if "0") or a video file. For video files, it also initializes
+    * specific objects for tracking metrics before starting the stream processing pipeline.
+    * @param data_path is the path to the video file or "0" to use the camera.
+    * @param labels_path is the path to the file containing class labels.
+    * @return Returns 0 on success, or -1 if the video source fails to open.
+    * @author Sveva Turola
+*/
 int frameCapture(string data_path, string labels_path) {
     string outputDir = "../output/frames/"; //output directory
     Mat frame;
@@ -68,6 +77,23 @@ int frameCapture(string data_path, string labels_path) {
     return 0;
 }
 
+/** \brief Manages the main video processing loop, including detection and frame saving.
+    * @details This function initializes the YOLO11s model and processes the video frame 
+    * by frame. It performs several key tasks:
+    * - Detects objects at fixed intervals.
+    * - Computes video metrics.
+    * - Identifies card values and draws boxes around them.
+    * - Saves frames as images only when the number of detected cards changes.
+    * - Saves all processed frames into a final MP4 video file.
+    * @param cap is the VideoCapture object already opened in frameCapture.
+    * @param out is the VideoWriter object used to save the output video.
+    * @param frame is a Mat object used to store each frame during reading.
+    * @param savedCount is the initial number of saved frames.
+    * @param labels_path is the path to the configuration file for class names.
+    * @return Returns the total number of saved frames, or -1 if the initial frame is empty or 
+    * the output video cannot be open.
+    * @author Sveva Turola
+*/
 int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
     // initialization of YOLO model
     YOLO_model model;
@@ -100,6 +126,8 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     }
 
     int cardCount = -1;
+
+    cout << "Starting video analysis... Results will be available once the computation is complete." << endl;
 
     while (true){
         cap.read(frame);
@@ -150,6 +178,16 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     return savedCount;
 }
 
+/** \brief Opens and reproduces the processed video file.
+    * @details This function opens the video located at the given path and displays it 
+    * in a fullscreen window. It calculates the correct playback speed based on the 
+    * original FPS. Users can control the playback using the keyboard:
+    * - Press 'q' to quit the video.
+    * - Press 'p' to pause the video.
+    * @param path is the file path of the video to be played.
+    * @param fps is the number of frames per second used to set the playback speed.
+    * @author Sveva Turola
+*/
 void playOutputVideo(string path, double fps){
     // opens the output video detections.mp4
     VideoCapture playback;
@@ -191,6 +229,14 @@ void playOutputVideo(string path, double fps){
     destroyWindow("Final video");
 }
 
+/** \brief Calculates the distance between the centers of two rectangles.
+    * @details This function finds the center point (x, y) for both input rectangles.
+    * It then calculates the Euclidean distance between these two centers.
+    * @param r1 is the first rectangle (Rect object).
+    * @param r2 is the second rectangle (Rect object).
+    * @return Returns the distance between the two centers as a double.
+    * @author Sveva Turola
+*/
 double getDistance(const Rect& r1, const Rect& r2){
     // computes center x and center y for both rectangles
     double cx1 = r1.x + (r1.width / 2.0);
@@ -202,7 +248,19 @@ double getDistance(const Rect& r1, const Rect& r2){
     return sqrt(pow(cx2 - cx1, 2) + pow(cy2 - cy1, 2));
 }
 
-Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){ // TODO da rivedere
+/** \brief Processes detections to group card symbols and apply the Hi-Lo counting system.
+    * @details This function analyzes the detections and performs several steps:
+    * - Groups symbols of the same class that are physically close into a single "full card" box.
+    * - Ensures each card box meets a minimum size and remains centered.
+    * - Assigns a color to each card based on the Hi-Lo system.
+    * - Creates a visual overlay on the frame with colored boxes and the game status.
+    * @param detections is a vector of all objects found by the YOLO model.
+    * @param model is the reference to the YOLO model.
+    * @param frame is the current video frame to be processed.
+    * @return Returns a new Mat frame with all visual detections and the running count drawn on it.
+    * @author Sveva Turola
+*/
+Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
     vector<Detection> green, blue, red;
 
     // groups the detections by value
@@ -228,7 +286,7 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){ // 
             // searches among the other symbols of the same group
             for (size_t j = i + 1; j < dets.size(); j++){
                 // if it finds another identical and very close symbol, then they belong to the same card
-                if (!processed[j] && getDistance(dets[i].boundingBox, dets[j].boundingBox) < 280.0) { // TODO cambiare valore
+                if (!processed[j] && getDistance(dets[i].boundingBox, dets[j].boundingBox) < 280.0){
                     // draws the bounding box of the entire card based on the coordinates of the detections
                     int minX = min(fullCard.boundingBox.x, dets[j].boundingBox.x);
                     int minY = min(fullCard.boundingBox.y, dets[j].boundingBox.y);
@@ -237,23 +295,26 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){ // 
 
                     Rect mergedBox(minX, minY, maxX - minX, maxY - minY);
 
-                    // TODO da commentare
+                    // normalization of the dimension of the bounding box
                     int minSize = 100; 
-    
+
+                    // used when the width of the bounding box is less than minSize
                     if (mergedBox.width < minSize) {
                         int diff = minSize - mergedBox.width;
+                        // updates the x to the left to preserve the center
                         mergedBox.x -= diff / 2;
                         mergedBox.width = minSize;
                     }
     
+                    // used when the height of the bounding box is less than minSize
                     if (mergedBox.height < minSize) {
                         int diff = minSize - mergedBox.height;
+                        // updates the y up to preserve the center
                         mergedBox.y -= diff / 2;
                         mergedBox.height = minSize;
                     }
 
-                    mergedBox &= Rect(0, 0, frame.cols, frame.rows);
-
+                    // updates the bounding box of fullCard
                     fullCard.boundingBox = mergedBox;
                     processed[j] = true;
                 }
@@ -302,10 +363,23 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){ // 
     return outputFrame;
 }
 
-// TODO da commentare
+/** \brief Draws a group of detected cards on the image.
+    * @details This function draws bounding boxes and labels for a list of detections. 
+    * It automatically adjusts the thickness of lines and the size of the text based on 
+    * the image resolution. The labels are centered and placed below each box.
+    * @param img is the image where the bounding boxes will be drawn.
+    * @param list is the list of card detections to show.
+    * @param color is the color used for the boxes and text.
+    * @param filled is a boolean and if is true, the boxes will be filled with color,
+    * otherwise only the outline is drawn.
+    * @param model is the reference to the YOLO model.
+    * @author Sveva Turola
+*/
 void drawCardGroup(Mat& img, const vector<Detection>& list, Scalar color, bool filled, YOLO_model& model){
+    // dynamic thickness
     int thickness = max(1, int(max(img.rows, img.cols) / 640));
 
+    // defines the thickness of the box: filled or thick line
     int boxThickness;
     if(filled == true){
         boxThickness = FILLED;
@@ -313,6 +387,7 @@ void drawCardGroup(Mat& img, const vector<Detection>& list, Scalar color, bool f
         boxThickness = 2 * thickness;
     }
     
+    // iterates through all detections in list
     for(size_t i = 0; i < list.size(); i++) {
         Rect box = list[i].boundingBox;
         rectangle(img, box, color, boxThickness);
@@ -322,9 +397,11 @@ void drawCardGroup(Mat& img, const vector<Detection>& list, Scalar color, bool f
         double fontScale = 0.5 * thickness;
         int fontThickness = max(1, int(1.5 * thickness));
         int baseLine = 0;
-            
+        
+        // measures text dimension
         Size textSize = getTextSize(label, FONT_HERSHEY_SIMPLEX, fontScale, fontThickness, &baseLine);
 
+        // defines text position: centered w.r.t. x and below the bottom edge
         int textX = box.x + (box.width - textSize.width) / 2;
         int textY = box.y + box.height + textSize.height + (10 * thickness);
 
@@ -334,6 +411,17 @@ void drawCardGroup(Mat& img, const vector<Detection>& list, Scalar color, bool f
     }
 }
 
+/** \brief Calculates and displays the blackjack running count and game status.
+    * @details This function computes the "Running Count" by comparing green (low value) 
+    * and red (high value) cards. It draws a semi-transparent dashboard on the frame 
+    * showing the current count and color-coded status (Green for player advantage, 
+    * Red for house advantage). If the count is high (+2 or more), it displays an 
+    * additional alert message to monitor the game.
+    * @param frame is the video frame where the status will be drawn.
+    * @param green is the vector of detections for low-value cards.
+    * @param red is the vector of detections for high-value cards.
+    * @author Sveva Turola
+*/
 void drawGameStatus(Mat& frame, const vector<Detection>& green, const vector<Detection>& red){
     // computes running count
     int runningCount = (int)green.size() - (int)red.size();
