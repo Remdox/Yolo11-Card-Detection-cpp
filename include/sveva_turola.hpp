@@ -15,9 +15,12 @@
 using namespace std;
 using namespace cv;
 
-int videoCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
-int cameraCapture(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
 int frameCapture(string data_path, string labels_path);
+int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
+void playOutputVideo(string path, double fps);
+double getDistance(const Rect& r1, const Rect& r2);
 Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame);
+void drawCardGroup(Mat& img, const vector<Detection>& list, Scalar color, bool filled, YOLO_model& model);
+void drawGameStatus(Mat& frame, const vector<Detection>& green, const vector<Detection>& red);
 
 #endif
