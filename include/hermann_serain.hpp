@@ -33,5 +33,8 @@ struct MetricsCounter {
 //NOTE: Public methods
 UserData readInput(int argc, char** argv);
 void computeImageMetrics(string imagePath, std::vector<Detection> predictedDetections);
+void initObjectsForVideoMetrics(string videoPath);
+void computeVideoMetrics(std::vector<Detection> predictedDetections, int frameCount);
+void printFinalVideoMetrics();
 
 #endif

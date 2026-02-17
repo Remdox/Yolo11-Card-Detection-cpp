@@ -458,3 +458,99 @@ void computeImageMetrics(string imagePath, std::vector<Detection> predictedDetec
         printFinalMetrics(results);
     }
 }
+
+
+//NOTE: Compute Video Metrics
+
+std::ifstream g_motFile;
+bool g_videoMetricsEnabled = false;
+MetricsCounter g_cumulativeVideoMetrics;
+std::string g_lastLine; 
+
+void initObjectsForVideoMetrics(string videoPath) {
+    if (g_motFile.is_open()) g_motFile.close();
+    g_videoMetricsEnabled = false;
+    g_cumulativeVideoMetrics = MetricsCounter();
+    g_lastLine = "";
+
+    if (!canComputeVideoMetrics(videoPath)) return;
+
+    fs::path p(videoPath);
+    string labelPath = "./../data/test/ground_truths/videos/" + p.stem().string() + ".txt";
+
+    g_motFile.open(labelPath);
+    if (g_motFile.is_open()) {
+        g_videoMetricsEnabled = true;
+        cout << "[METRICS] File MOT aperto per la lettura sequenziale." << endl;
+    }
+}
+
+void computeVideoMetrics(std::vector<Detection> predictedDetections, int frameCount) {
+    if (!g_videoMetricsEnabled || !g_motFile.is_open()) return;
+
+    std::vector<Detection> actualDetections;
+    string line;
+    
+    // Se abbiamo una riga salvata dal ciclo precedente, iniziamo da quella
+    if (!g_lastLine.empty()) {
+        line = g_lastLine;
+        g_lastLine = "";
+    } else if (!getline(g_motFile, line)) {
+        return; // Fine del file
+    }
+
+    while (true) {
+        stringstream ss(line);
+        string token;
+        vector<string> tokens;
+        
+        // Parsing veloce della riga (CSV)
+        while (getline(ss, token, ',')) tokens.push_back(token);
+
+        if (tokens.size() >= 8) {
+            int currentLineFrame = stoi(tokens[0]);
+
+            if (currentLineFrame == frameCount) {
+                Detection d;
+                d.boundingBox = cv::Rect(stof(tokens[2]), stof(tokens[3]), stof(tokens[4]), stof(tokens[5]));
+                d.classId = stoi(tokens[7]);
+                d.classConfidence = 1.0f;
+                actualDetections.push_back(d);
+            } 
+            else if (currentLineFrame > frameCount) {
+                g_lastLine = line;
+                break;
+            }
+        }
+
+        if (!getline(g_motFile, line)) break;
+    }
+    MetricsCounter frameResults = updateMetricsCounters(predictedDetections, actualDetections);
+    
+    g_cumulativeVideoMetrics.tp += frameResults.tp;
+    g_cumulativeVideoMetrics.fp += frameResults.fp;
+    g_cumulativeVideoMetrics.fn += frameResults.fn;
+}
+
+
+void printFinalVideoMetrics() {
+    if (!g_videoMetricsEnabled) {
+        cout << "[METRICS] No data accumulated for this video." << endl;
+        return;
+    }
+
+    cout << "\n--- FINAL CUMULATIVE VIDEO STATISTICS ---" << endl;
+    printFinalMetrics(g_cumulativeVideoMetrics);
+
+    if (g_motFile.is_open()) {
+        g_motFile.close();
+    }
+
+    g_videoMetricsEnabled = false;
+    g_lastLine = "";
+    g_cumulativeVideoMetrics.tp = 0;
+    g_cumulativeVideoMetrics.fp = 0;
+    g_cumulativeVideoMetrics.fn = 0;
+
+    cout << "[INFO] Metrics state reset for the next session." << endl;
+}

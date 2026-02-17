@@ -15,6 +15,7 @@
 
 #include "./../include/sveva_turola.hpp"
 #include "./../include/marco_annunziata.hpp"
+#include "./../include/hermann_serain.hpp"
 
 using namespace std;
 using namespace cv;
@@ -56,7 +57,9 @@ int frameCapture(string data_path, string labels_path) {
         }
 
         cout << "Loading video..." << endl;
+        initObjectsForVideoMetrics(data_path);
         savedCount = processStream(cap, out, frame, savedCount, labels_path);
+        printFinalVideoMetrics();
     }
 
     cout << "\nExtraction completed! Frames used: " << savedCount << endl;
@@ -110,6 +113,7 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
 
         if (frameCount % (fps/2) == 0){
             detections = model.detectionPipeline(frame);
+            computeVideoMetrics(detections, frameCount+1); 
         }
 
         frameCount++;
