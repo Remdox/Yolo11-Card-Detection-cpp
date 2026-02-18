@@ -59,7 +59,7 @@ string handleFile();
 
 
 //WARNING: THIS PROGRAM USE THE TERMINAL API AND PROCESS THE TERMINAL IN RAW MODE, 
-//IF THE TERMINAL DOESN'T WORK AS BEFORE TYPE BLINDED "reset"
+//IF THE TERMINAL DOESN'T WORK AS BEFORE, TYPE "reset" BLINDLY
 UserData readInput(int argc, char** argv)
 {
     //NOTE: Here I'm gonna read the user input from the terminal
@@ -120,7 +120,7 @@ UserData readInput(int argc, char** argv)
 
             case Choice::Invalid:
             {
-                cout << "Usage: write C or F (or H for help)!\n";
+                cout << "Usage: enter C or F (or H for help)!\n";
             }
         }
     }
@@ -158,7 +158,7 @@ void handleCamera()
 
 string handleFile()
 {
-    TerminalRawMode rawMode; // abilita modalità raw
+    TerminalRawMode rawMode; // enable raw terminal
 
     string currentPath;
     cout << "Insert file path: ";
@@ -341,7 +341,7 @@ MetricsCounter updateMetricsCounters(std::vector<Detection> predictedDetections,
         if (bestMatchIdx != -1 && maxIoU >= IOU_THRESHOLD) {
             frameResults.tp++;
             
-            //WARNING: CHECK CORRECTNESS WITH DEBUGING
+            //WARNING: CHECK CORRECTNESS WITH DEBUGGING
 
             /* CARD CONSOLIDATION LOGIC 
                Per your requirement: remove the matched GT and other GTs of the 
@@ -367,8 +367,7 @@ MetricsCounter updateMetricsCounters(std::vector<Detection> predictedDetections,
         }
     }
 
-    // NOTE: Ricordati che marco ha etichettato il video in modo strano !
-    // Remaings ground truths are false negative
+    // Remaining ground truths are false negatives
     frameResults.fn = static_cast<int>(remainingGT.size());
 
     return frameResults;
@@ -481,7 +480,7 @@ void initObjectsForVideoMetrics(string videoPath) {
     g_motFile.open(labelPath);
     if (g_motFile.is_open()) {
         g_videoMetricsEnabled = true;
-        cout << "[METRICS] File MOT aperto per la lettura sequenziale." << endl;
+        cout << "[METRICS] FMOT file opened for sequential reading." << endl;
     }
 }
 
@@ -491,12 +490,12 @@ void computeVideoMetrics(std::vector<Detection> predictedDetections, int frameCo
     std::vector<Detection> actualDetections;
     string line;
     
-    // Se abbiamo una riga salvata dal ciclo precedente, iniziamo da quella
+    // If we have a cached row from the previous frame, we start from that one
     if (!g_lastLine.empty()) {
         line = g_lastLine;
         g_lastLine = "";
     } else if (!getline(g_motFile, line)) {
-        return; // Fine del file
+        return; // End of file
     }
 
     while (true) {
@@ -504,7 +503,7 @@ void computeVideoMetrics(std::vector<Detection> predictedDetections, int frameCo
         string token;
         vector<string> tokens;
         
-        // Parsing veloce della riga (CSV)
+        // Fast line parsing (CSV)
         while (getline(ss, token, ',')) tokens.push_back(token);
 
         if (tokens.size() >= 8) {
