@@ -20,6 +20,7 @@
 using namespace std;
 using namespace cv;
 using namespace Shared;
+namespace fs = std::filesystem;
 
 int main(int argc, char** argv){
     string choice = "X";
@@ -52,8 +53,15 @@ int main(int argc, char** argv){
                     vector<string> dataClasses = model.getDataClasses(labels_path);
                     cout << "GPU available? " << (model.isAvailableGPU() ? "YES" : "NO") << endl;
                     model.detectionPipeline(frame);
-                    Mat resultImg = model.drawBoundingBoxes(frame, Scalar(255, 0, 0));
                     auto detections = model.getDetections();
+                    Mat resultImg = cardValues(detections, model, frame);
+                    string outputDir = "../output/";
+                    if (!fs::exists(outputDir)) {
+                        fs::create_directory(outputDir);
+                    }
+                    fs::path p(userData.data_path);
+                    string filename = outputDir + p.stem().string() + "_detections.jpg";
+                    imwrite(filename, resultImg);
                     computeImageMetrics(userData.data_path, detections);
                     std::string windowTitle = model.getModelName() + " - " + std::to_string(detections.size()) + " detections";
                     namedWindow(windowTitle, WINDOW_NORMAL);

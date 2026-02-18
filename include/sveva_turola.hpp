@@ -16,7 +16,7 @@ using namespace std;
 using namespace cv;
 
 int frameCapture(string data_path, string labels_path);
-int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
+int processStream(string data_path, VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path);
 void playOutputVideo(string path, double fps);
 double getDistance(const Rect& r1, const Rect& r2);
 Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame);

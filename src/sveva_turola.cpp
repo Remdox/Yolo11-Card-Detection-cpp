@@ -33,7 +33,9 @@ namespace fs = std::filesystem;
     * @author Sveva Turola
 */
 int frameCapture(string data_path, string labels_path) {
-    string outputDir = "../output/frames/"; //output directory
+    fs::path p(data_path);
+    string name = p.stem().string() + "_frames/";
+    string outputDir = "../output/" + name; //output directory
     Mat frame;
     int savedCount = 0;
     VideoCapture cap;
@@ -55,7 +57,7 @@ int frameCapture(string data_path, string labels_path) {
         }
 
         cout << "Loading camera video..." << endl;
-        savedCount = processStream(cap, out, frame, savedCount, labels_path);
+        savedCount = processStream(data_path, cap, out, frame, savedCount, labels_path);
     } else {
         // if video file was selected
         cap.open(data_path);
@@ -67,7 +69,7 @@ int frameCapture(string data_path, string labels_path) {
 
         cout << "Loading video..." << endl;
         initObjectsForVideoMetrics(data_path);
-        savedCount = processStream(cap, out, frame, savedCount, labels_path);
+        savedCount = processStream(data_path, cap, out, frame, savedCount, labels_path);
         printFinalVideoMetrics();
     }
 
@@ -94,7 +96,7 @@ int frameCapture(string data_path, string labels_path) {
     * the output video cannot be open.
     * @author Sveva Turola
 */
-int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
+int processStream(string data_path, VideoCapture cap, VideoWriter out, Mat frame, int savedCount, string labels_path){
     // initialization of YOLO model
     YOLO_model model;
     model.setModelName("YOLO11s");
@@ -119,7 +121,9 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     int frame_height = static_cast<int>(cap.get(CAP_PROP_FRAME_HEIGHT));
 
     // opens output video
-    out.open("../output/detections.mp4", codec, fps, Size(frame_width, frame_height), true);
+    fs::path p(data_path);
+    string name = p.stem().string();
+    out.open(("../output/" + name + "_detections.mp4"), codec, fps, Size(frame_width, frame_height), true);
     if(!out.isOpened()){
         cerr << "Could not open the output video file for write\n";
         return -1;
@@ -151,7 +155,7 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
 
         // saving only relevant frames, that are the frames in which the number of detections changes
         if(currentCardCount != cardCount){
-            string filename = "../output/frames/frame_" + to_string(savedCount) + ".jpg";
+            string filename = "../output/" + name + "_frames/frame_" + to_string(savedCount) + ".jpg";
             imwrite(filename, outputFrame);
             cardCount = currentCardCount;
         }
@@ -173,7 +177,7 @@ int processStream(VideoCapture cap, VideoWriter out, Mat frame, int savedCount, 
     destroyAllWindows();
 
     // calls the method to show the video
-    playOutputVideo("../output/detections.mp4", fps);
+    playOutputVideo(("../output/" + name + "_detections.mp4"), fps);
 
     return savedCount;
 }

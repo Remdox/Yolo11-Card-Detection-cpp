@@ -420,7 +420,7 @@ std::vector<Detection> parseYoloLabels(string labelPath, int imgW, int imgH) {
             int pixelY = static_cast<int>((y_center * imgH) - (pixelH / 2.0f));
 
             Detection gt;
-            gt.classId = classId;
+            gt.classId = classId - 1;
             gt.boundingBox = cv::Rect(pixelX, pixelY, pixelW, pixelH);
             gt.classConfidence = 1.0f; 
 
@@ -513,7 +513,7 @@ void computeVideoMetrics(std::vector<Detection> predictedDetections, int frameCo
             if (currentLineFrame == frameCount) {
                 Detection d;
                 d.boundingBox = cv::Rect(stof(tokens[2]), stof(tokens[3]), stof(tokens[4]), stof(tokens[5]));
-                d.classId = stoi(tokens[7]);
+                d.classId = stoi(tokens[7]) - 1;
                 d.classConfidence = 1.0f;
                 actualDetections.push_back(d);
             } 
