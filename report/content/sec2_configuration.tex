@@ -1,0 +1,16 @@
+\section{Configuration}
+The project is organized to ensure a separation between source code, documentation, data and results.\\
+In particular, the directory structure is organized as follows:
+\begin{itemize}
+    \item \texttt{build/}: contains all the files generated during the compilation process;
+    \item \texttt{data/model/}: contains the YOLO11 models in ONNX format and the \texttt{labels.txt} file with all card symbols;
+    \item \texttt{data/test/}: stores the images and videos used for testing, along with their manual ground truth annotations;
+    \item \texttt{doxygen\_docs/} and \texttt{doxygen.txt}: used to generate automatically a documentation of the source code;
+    \item \texttt{external/}: includes the ONNX Runtime library and installation scripts required for model execution;
+    \item \texttt{include/}: contains the C++ header files that define the project's classes and functions;
+    \item \texttt{output/}: represents the folder where the final results are saved. If the input is a video, it contains a folder with all the relevant frames and the output video, while if the input is a image, it stores the image with the resulting Hi-Lo system;
+    \item \texttt{scripts/}: contains Python scripts used for training and dataset preparation;
+    \item \texttt{src/}: contains the C++ source files, which include the main file \texttt{finalProject.cpp}, specific files for each group member and a \texttt{shared.cpp} file for common utilities;
+    \item \texttt{CMakeLists.txt}: configuration file used to manage the build process for all C++ components;
+    \item \texttt{README.md}: provides an overview of the project and instructions for setup and execution.
+\end{itemize}

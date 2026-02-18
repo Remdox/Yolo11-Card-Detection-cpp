@@ -7,3 +7,6 @@ data/test/*
 build/*
 external/onnxruntime-linux-x64-gpu-1.21.0.tgz
 doxygen_docs/
+report/report.*
+!/report/report.tex
+!/report/report.pdf

@@ -1,0 +1,26 @@
+\section{Introduction}
+Blackjack is a popular casino game where players compete individually against the dealer (the house).\\
+In this game, the house generally maintains a slight advantage over the players and for this reason players often employ 
+strategies, such as card counting, to mitigate this disadvantage. \\
+Card counting involves monitoring the sequence of high and low-value cards already dealt to estimate the 
+composition of the remaining deck. 
+By maintaining a "running count," a player can identify advantageous moments to adjust their betting patterns. 
+\\ \newline
+This project proposes the development of an automated card counting detection system. \\
+The primary goal is to build a video analysis pipeline capable of interpreting the flow of cards dealt during a game.
+Through this process, the system is able to monitor the game status and identify situations favorable to the players, alerting
+to focus on players' decisions and betting variations.
+\\ \newline
+The project focuses on the implementation of the Hi-Lo counting method, where each card is assigned a specific value 
+to update the total count:
+\begin{itemize}
+    \item Low-value cards (2-6): assigned a value of +1;
+    \item Neutral cards (7-9): assigned a value of 0;
+    \item High-value cards (10-Ace): assigned a value of -1.
+\end{itemize}
+To facilitate intuitive monitoring, the system overlays color-coded bounding boxes around detected cards 
+(Green for +1, Blue for 0, and Red for -1), allowing for real-time interpretation of the counting logic.
+\\ \newline
+This project aims to show how computer vision can automate blackjack tracking. 
+By using real-time detection and Hi-Lo logic, the system monitors the deck and visualizes the count, demonstrating 
+the potential for automated monitoring in gaming environments.
