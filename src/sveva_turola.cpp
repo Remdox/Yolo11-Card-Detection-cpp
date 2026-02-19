@@ -289,8 +289,12 @@ Mat cardValues(vector<Detection> detections, YOLO_model &model, Mat &frame){
 
             // searches among the other symbols of the same group
             for (size_t j = i + 1; j < dets.size(); j++){
+                // sets a dynamic threshold based on the dimension of the diagonal
+                float diag = sqrt(pow(fullCard.boundingBox.width, 2) + pow(fullCard.boundingBox.height, 2));
+                float threshold = min(diag * 4.5f, 350.0f);
+
                 // if it finds another identical and very close symbol, then they belong to the same card
-                if (!processed[j] && getDistance(dets[i].boundingBox, dets[j].boundingBox) < 280.0){
+                if (!processed[j] && getDistance(dets[i].boundingBox, dets[j].boundingBox) < threshold){
                     // draws the bounding box of the entire card based on the coordinates of the detections
                     int minX = min(fullCard.boundingBox.x, dets[j].boundingBox.x);
                     int minY = min(fullCard.boundingBox.y, dets[j].boundingBox.y);
