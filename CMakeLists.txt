@@ -24,7 +24,8 @@ else()
     message(STATUS "Using ONNX CPU config")
 endif()
 
-include_directories("${ONNX_ROOT}/include")
+include_directories("${ONNX_ROOT}/include/")
+include_directories("${ONNX_ROOT}/include/onnxruntime/")
 
 find_library(ORT_LIB NAMES onnxruntime HINTS "${ONNX_ROOT}/${ORT_LIB_NAME}")
 find_package(OpenCV REQUIRED)
