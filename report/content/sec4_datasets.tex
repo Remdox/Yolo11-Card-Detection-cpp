@@ -1,0 +1,14 @@
+\section{Datasets}
+The project uses three main data sources:
+\begin{itemize}
+    \item The Complete Playing Card Dataset \cite{shah_kaggle};
+    \item Playing Cards Object Detection Dataset \cite{andy8744_kaggle};
+    \item Real-World Blackjack Videos (YouTube) \cite{bluff_blackjack}.
+\end{itemize}
+In particular, the data was partitiones into three subsets: training, validation and test. \\
+The training subset contains data from both \cite{shah_kaggle} and \cite{andy8744_kaggle}, where 
+the labels from the second dataset were adjusted to match the \texttt{data.yaml} configuration of the first.
+The validation set was sourced from \cite{andy8744_kaggle}, which also provided images for the test set. 
+To evaluate the system in dynamic, real-world conditions, the test set was further expanded with the video 
+from \cite{bluff_blackjack}. \\
+The final organized dataset, featuring the manual split into these subsets, is available at \cite{annunziata_kaggle}.

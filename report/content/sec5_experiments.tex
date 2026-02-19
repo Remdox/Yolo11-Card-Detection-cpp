@@ -1,0 +1,51 @@
+\section{Experiments}
+This section outlines the experimental framework and evaluation methodology used to validate the system.
+\subsection{Training of the model and exporting to ONNX format}
+In this project, the YOLO11s model was used, to deliver good performance with enough speed.
+The YOLO model is trained on the dataset using two RTX 3090 GPUs inside the UniPD DEI cluster.
+The training dataset has been split into 3 smaller subsets such that:
+\begin{itemize}
+    \item Each subset contains images (and corresponding labels) which are different than the other datasets (preventing data leakage);
+    \item Each subset has a maximum size which allows each one of them to be loaded into RAM.
+\end{itemize}
+As a result, the training process is divided into three sequential steps: each step loads the model weights from the 
+previous step and continues training on the next subset. This allows for a faster and more fault-tolerant training process 
+with a negligible penalty on accuracy. The full script is available at \texttt{scripts/yolo\_training.py}. \\ \newline
+The model detects a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding 
+boxes can be found for the same card, which makes it easier to find in case of partial occlusions. The bounding boxes are then 
+classified as the suit and the rank they enclose. \\ \newline
+Since the inference has to be performed in a C++ program, the model has to be exported into a ONNX format and imported 
+into the program using a library like ONNX Runtime.
+\subsection{Inference}
+The inference is subdivided into three sections:
+\begin{itemize}
+    \item Pre-processing of the image: the image is formatted as a valid input of the Yolo11s model and the ONNX Runtime session. 
+    Letterbox padding of the input images is enabled by default, since YOLO models use it for the training phase, but the option 
+    can also be disabled when calling the function used for the inference;
+    \item Inference of the imported YOLO11s model, using a ONNX Runtime session. If the model used is static, YOLO11 generates 84000 detections;
+    \item Post-processing of the results. Each detection result consists of 4 values defining the object's bounding box (position and size), and 
+    a confidence score for every possible class which the object might correspond to. Non-maxima suppression is used to keep only 1 bounding box 
+    for each detected object.
+\end{itemize}
+In order to handle detection of small cards in big images, a sliding window approach is used: the image is subdivided into smaller, slightly 
+overlapping tiles, with size equal to the image size used for training the model (640px). The overhead introduced by this method is mitigated 
+by using multi-threading, where each tile is processed by a separate thread in parallel.
+\subsection{Performance metrics}
+To quantitatively evaluate the performance of the system, different metrics were used:
+\begin{itemize}
+    \item Intersection over Union (IoU): ratio between the intersection of the predicted and actual
+    bounding boxes and the total area covered by both boxes. It is used to assess how well a predicted bounding box
+    aligns with the ground truth. To determine whether a detection is correct, a threshold of 0.5 is typically set (
+    if $IoU > 0.5$ the detection is considered a True Positive, while if $IoU < 0.5$ the detection is considered a False Positive);
+    \[ IoU = \frac{\text{Area of Intersection}}{\text{Area of Union}} \]
+    \item True Positives (TP): occur when the model correctly identifies the presence of a target. In our implementation, a detection is counted as a TP 
+    only if the predicted class matches the ground truth and the Intersection over Union (IoU) is greater than or equal to 0.5;
+    \item False Positives (FP): occur when the model predicts the presence of a target that is not actually present;
+    \item False Negatives (FN): occur when the model fails to detect a target that is actually present;
+    \item Precision: measures the proportion of correctly predicted bounding boxes among all detections;
+    \[ Precision = \frac{TP}{TP + FP} \]
+    \item Recall: measures the proportion of correctly predicted bounding boxes among all ground truth boxes;
+    \[ Recall = \frac{TP}{TP + FN} \]
+    \item F1-Score: harmonic mean of Precision and Recall used to evaluate how well a classification model performs.
+    \[  F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} \]
+\end{itemize}
