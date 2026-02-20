@@ -42,10 +42,13 @@ by using multi-threading, where each tile is processed by a separate thread in p
 After detection, the application logic is managed by \texttt{sveva\_turola.cpp}. This phase involves:
 \begin{itemize}
     \item Card Grouping: the \texttt{cardValues} function groups nearby corner detections (suit and rank) belonging to the same 
-    card into a single, unified bounding box;
+    card into a single, unified bounding box. This grouping is governed by a dynamic distance threshold calculated based on the 
+    symbol's diagonal, ensuring the system adapts to different card sizes and distances from the camera;
     \item Hi-Lo Counting System: bounding boxes are classified and color-coded: Low (2-6) in Green, Neutral (7-9) in 
     Blue, and High (10-A) in Red. The system maintains a Running Count displayed in real-time on the GUI.
 \end{itemize}
+The module handles both live camera feeds and video files, saving processed frames only when the detection count changes. 
+The final result is rendered in a fullscreen window with custom playback controls (\texttt{p} to pause, \texttt{q} to quit).
 
 \subsection{Performance metrics}
 A complex but fast evaluation system is integrated in \texttt{hermann\_serain.cpp}. The program will compare the predictions made by the model against the ground truth labels, only if ground truths are provided. The default image and video bundled inside the project are already labeled,
