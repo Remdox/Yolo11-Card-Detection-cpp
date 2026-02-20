@@ -24,3 +24,12 @@ To facilitate intuitive monitoring, the system overlays color-coded bounding box
 This project aims to show how computer vision can automate blackjack tracking. 
 By using real-time detection and Hi-Lo logic, the system monitors the deck and visualizes the count, demonstrating 
 the potential for automated monitoring in gaming environments.
+
+\subsection{General Information, Dependencies and Running the project}
+The Github repo documenting the project is provided at the following link: \cite{github_repo}. It is required to satisfy the following dependencies:
+\begin{itemize}
+    \item CMake version: 4.0.0+
+    \item OpenCV version: 4+
+    \item ONNX Runtime version: 1.21.0. The binaries for the CPU version are already bundled inside the project inside the external/ folder and CMAKE is already configured to find the binaries either in this folder or in the system's directories. The GPU version can be downloaded from the most recent Github Release and it's compatible with CUDA 12.X versions. If both packages are present in the external/ folder, the GPU version will be selected first.
+\end{itemize}
+Please follow the instructions for running the project in the README.md file.

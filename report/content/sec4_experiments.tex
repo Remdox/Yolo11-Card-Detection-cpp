@@ -1,7 +1,8 @@
 \section{Implementation and Experiments}
-This section outlines the pipeline developed for the project, describing both the training phase and the C++ implementation.
+This section outlines the pipeline developed for the project, describing both the training phase and the C++ implementation, as well as some of the design choices.
+Check out the doxygen documentation in \texttt{doxygen.txt} and the source code for more details.
 
-\subsection{Training of the model and exporting to ONNX format}
+\subsection{Training of the model}
 In this project, the YOLO11s model was selected, to deliver good performance with enough speed.
 The YOLO model was trained on the dataset using two RTX 3090 GPUs inside the UniPD DEI cluster.
 The training dataset was split into 3 smaller subsets such that:
@@ -47,13 +48,29 @@ After detection, the application logic is managed by \texttt{sveva\_turola.cpp}.
 \end{itemize}
 
 \subsection{Performance metrics}
-To validate the system, an evaluation engine is integrated into \texttt{hermann\_serain.cpp}. If ground truth labels are provided, 
-the system compares the predicted detections against actual data using an Intersection over Union (IoU) threshold of 0.5.
+A complex but fast evaluation system is integrated in \texttt{hermann\_serain.cpp}. The program will compare the predictions made by the model against the ground truth labels, only if ground truths are provided. The default image and video bundled inside the project are already labeled,
+but it's also possible to add labels for custom images and videos. For more information, see the README.md file.
+\\\\
+The pipeline to compute the metrics relies on counting the number of True Positives (TP), False Positives (FP) and False Negatives (FN) over all card detections (there are no True Negatives since everything that is not a card is a TN).
+One TP is considered as a full card detection, but the model detects the rank and suit of all corners of the card to improve robustness to occlusions, meaning that the system has to be able to aggregate the detections in the separate corners of each card into a single detection of the full card.
+\\\\
+Another increase in complexity comes from the problem that videos need a labeling format, the MOT format, which is different than the YOLO format used for images.
+There are multiple reasons for why the MOT format has been chosen for videos:
+\begin{itemize}
+    \item It's a format compatible with the video labeling software used (CVAT), particularly with the visiblity feature that keeps note of occlusions during the tracking of the bounding boxes;
+    \item Each video corresponds in this format to a single label file, which is more compact and convenient than using one file per video frame;
+    \item The format of the detections in the file are easily readable line-by-line, in contrast with the XML formats that could be harder to parse correctly for the amount of information that is actually needed.
+\end{itemize}
+For each frame of the video, the system:
+\begin{itemize}
+    \item Discards the ground truths where the visibility of the bounding box is 0;
+    \item Checks if the bounding boxes are in the same position of the ground truths, and sees if they are of the same class. An overlap between boxes is detected if their Intersection over Union (IoU) is over a threshold of 0.5;
+    \item Aggregates the bounding boxes corresponding to corners of the same card to a single full card detection;
+    \item Updates the counters for TPs, FPs, FNs.
+\end{itemize}
 The IoU is the ratio between the intersection of the predicted and actual bounding boxes and the total area covered by both boxes:
 \[ IoU = \frac{\text{Area of Intersection}}{\text{Area of Union}} \]
-If $IoU > 0.5$ the detection is considered a True Positive, while if $IoU < 0.5$ or the class is incorrect the detection is considered a False Positive.
-\\ \newline
-The following metrics were implemented to quantitatively evaluate the performance of the system:
+The conunters of TPs, FPs and FNs for each image/video are finally used to compute the metrics. The following metrics quantitatively evaluate the performance of the system:
 \begin{itemize}
     \item Precision: measures the proportion of correctly predicted bounding boxes among all detections;
     \[ Precision = \frac{TP}{TP + FP} \]
@@ -63,6 +80,3 @@ The following metrics were implemented to quantitatively evaluate the performanc
     \[  F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} \]
 \end{itemize}
 The final performance statistics are shown once the video or image processing is complete.
-\\ \newline
-Check out the doxygen documentation in \texttt{doxygen.txt} and the source code for more details. \\
-To test the system, follow the instructions in the \texttt{README.md} file.

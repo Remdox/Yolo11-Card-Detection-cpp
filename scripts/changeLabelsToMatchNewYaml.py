@@ -40,7 +40,7 @@ for txt_file in labels_folder.glob("*.txt"):
                 parts[0] = str(index_to_new_index[old_idx])
                 new_lines.append(" ".join(parts))
             else:
-                print(f"⚠️ Index {old_idx} not in mapping, skipping line: {line.strip()}")
+                print(f"Index {old_idx} not in mapping, skipping line: {line.strip()}")
 
     new_path = output_folder / txt_file.name
     with open(new_path, "w") as f:
