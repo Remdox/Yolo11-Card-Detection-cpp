@@ -96,12 +96,10 @@ int main(int argc, char** argv){
         case Choice::Invalid:
         case Choice::Help:
         {
-            //TODO: Verifica se questa parte va bene, di norma in questo caso non può ricaderci l'utente
             throw std::logic_error("Invalid operation: ...");
         }
     }
 
-    // TODO: batch processing
     if(labels_path.rfind(".txt") == string::npos){
         cerr << "The label file provided has an invalid file type. Please provide a .txt file.\n";
         return -1;
