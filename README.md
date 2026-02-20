@@ -144,7 +144,7 @@ As a result, the training process is divided into three sequential steps: each s
  
 The model detects a bounding box enclosing the suit and the rank on the corners of a poker card. This means that at most 2 bounding boxes can be found for the same card, which makes it easier to find in case of partial occlusions. The bounding boxes are then classified as the suit and the rank they enclose.
 
-Since the inference has to be performed in a C++ program, the model has to be [exported](./scripts/convertToONNX.ipynb) into a ONNX format and imported into the program using a library like ONNX Runtime.
+Since the inference has to be performed in a C++ program, the model has to be exported into a ONNX format and imported into the program using a library like ONNX Runtime.
 
 ### Inference
 The inference is subdivided into three sections:
