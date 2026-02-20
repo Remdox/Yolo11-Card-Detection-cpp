@@ -1,0 +1,68 @@
+\section{Implementation and Experiments}
+This section outlines the pipeline developed for the project, describing both the training phase and the C++ implementation.
+
+\subsection{Training of the model and exporting to ONNX format}
+In this project, the YOLO11s model was selected, to deliver good performance with enough speed.
+The YOLO model was trained on the dataset using two RTX 3090 GPUs inside the UniPD DEI cluster.
+The training dataset was split into 3 smaller subsets such that:
+\begin{itemize}
+    \item Each subset contains images (and corresponding labels) which are different than the other datasets (preventing data leakage);
+    \item Each subset has a maximum size which allows each one of them to be loaded into RAM.
+\end{itemize}
+As a result, the training process was divided into three sequential steps: each step loaded the model weights from the 
+previous step and continued training on the next subset. This strategy allowed for a faster and more fault-tolerant training process 
+with a negligible penalty on accuracy. The full script is available at \texttt{scripts/yolo\_training.py}. \\ \newline
+The model was specifically trained to detect bounding boxes enclosing the suit and rank on the corners of a 
+poker card. This means that at most 2 bounding boxes can be found for the same card, ensuring that even if a card is partially occluded, 
+the system remains robust as long as at least one corner is visible. \\ \newline
+Since the final application is developed in C++, the model had to be exported into a ONNX format and imported 
+into the program using a library like ONNX Runtime.
+
+\subsection{Inference pipeline}
+The application is organized into modular components within the \texttt{src/} directory. The execution flow 
+is coordinated by \texttt{finalProject.cpp}, which acts as the main entry point, allowing the user to choose between camera 
+input or file processing. The core pipeline is implemented as follows:
+\begin{enumerate}
+    \item Input Handling and Pre-processing: user interaction and terminal input parsing are handled in \texttt{hermann\_serain.cpp}. 
+    Once the source is selected, \texttt{marco\_annunziata.cpp} prepares the image. The image is formatted as a valid input of the 
+    Yolo11s model and the ONNX Runtime session. Letterbox padding of the input images is enabled by default, since YOLO models use 
+    it for the training phase, but the option can also be disabled when calling the function used for the inference;
+    \item Model Inference: the \texttt{YOLO\_model} class in \texttt{marco\_annunziata.cpp} manages the ONNX Runtime session. 
+    It handles the inference execution, which generates approximately 84,000 potential detections;
+    \item Post-processing: each detection result consists of 4 values defining the object's bounding box (position and size), and 
+    a confidence score for every possible class which the object might correspond to. The system uses Non-Maxima Suppression in 
+    \texttt{marco\_annunziata.cpp} to keep only 1 bounding box for each detected object.
+\end{enumerate}
+In order to handle detection of small cards in big images, a sliding window approach is used: the image is subdivided into smaller, slightly 
+overlapping tiles, with size equal to the image size used for training the model (640px). The overhead introduced by this method is mitigated 
+by using multi-threading, where each tile is processed by a separate thread in parallel.
+
+\subsection{Hi-Lo Logic and Visualization}
+After detection, the application logic is managed by \texttt{sveva\_turola.cpp}. This phase involves:
+\begin{itemize}
+    \item Card Grouping: the \texttt{cardValues} function groups nearby corner detections (suit and rank) belonging to the same 
+    card into a single, unified bounding box;
+    \item Hi-Lo Counting System: bounding boxes are classified and color-coded: Low (2-6) in Green, Neutral (7-9) in 
+    Blue, and High (10-A) in Red. The system maintains a Running Count displayed in real-time on the GUI.
+\end{itemize}
+
+\subsection{Performance metrics}
+To validate the system, an evaluation engine is integrated into \texttt{hermann\_serain.cpp}. If ground truth labels are provided, 
+the system compares the predicted detections against actual data using an Intersection over Union (IoU) threshold of 0.5.
+The IoU is the ratio between the intersection of the predicted and actual bounding boxes and the total area covered by both boxes:
+\[ IoU = \frac{\text{Area of Intersection}}{\text{Area of Union}} \]
+If $IoU > 0.5$ the detection is considered a True Positive, while if $IoU < 0.5$ or the class is incorrect the detection is considered a False Positive.
+\\ \newline
+The following metrics were implemented to quantitatively evaluate the performance of the system:
+\begin{itemize}
+    \item Precision: measures the proportion of correctly predicted bounding boxes among all detections;
+    \[ Precision = \frac{TP}{TP + FP} \]
+    \item Recall: measures the proportion of correctly predicted bounding boxes among all ground truth boxes;
+    \[ Recall = \frac{TP}{TP + FN} \]
+    \item F1-Score: harmonic mean of Precision and Recall used to evaluate how well a classification model performs.
+    \[  F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} \]
+\end{itemize}
+The final performance statistics are shown once the video or image processing is complete.
+\\ \newline
+Check out the doxygen documentation in \texttt{doxygen.txt} and the source code for more details. \\
+To test the system, follow the instructions in the \texttt{README.md} file.
