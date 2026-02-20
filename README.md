@@ -51,6 +51,7 @@ Please use Linux (...or you could also check out the official documentation for 
 To run the project:
 1. Build and compilation:
    ```
+   mkdir build
    cd build
    cmake ..
    make
